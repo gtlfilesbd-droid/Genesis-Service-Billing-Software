@@ -107,17 +107,34 @@
                         </a>
                     </div>
                     {% endif %}
-                <table class="table table-sm table-hover mb-0">
-                    <thead><tr>
-                        <th>Service</th><th>Type</th><th>Charge</th><th>Description</th>
+                <table class="table table-sm align-middle mb-0">
+                    <thead class="table-light"><tr>
+                        <th class="text-uppercase text-muted small fw-semibold" style="letter-spacing:.04em;">Service</th>
+                        <th class="text-uppercase text-muted small fw-semibold text-nowrap" style="letter-spacing:.04em; width:140px;">Type</th>
+                        <th class="text-uppercase text-muted small fw-semibold text-nowrap text-end" style="letter-spacing:.04em; width:140px;">Charge</th>
+                        <th class="text-uppercase text-muted small fw-semibold" style="letter-spacing:.04em;">Description</th>
                     </tr></thead>
                     <tbody>
-                    {% for service in agreement.services.all %}
+                    {% for service in agreement.grouped_services %}
                     <tr>
-                        <td class="fw-semibold">{{ service.name }}</td>
-                        <td><span class="badge bg-primary-subtle text-primary rounded-pill">{{ service.get_service_type_display }}</span></td>
-                        <td class="fw-bold text-success">৳{{ service.charge|floatformat:0 }}</td>
-                        <td class="small text-muted">{{ service.description|default:"—"|truncatechars:60 }}</td>
+                        <td class="fw-semibold">
+                            <ul class="list-unstyled mb-0">
+                                {% for n in service.names %}
+                                <li class="mb-1">{{ n }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                        <td class="text-nowrap">
+                            <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">{{ service.service_type_label }}</span>
+                        </td>
+                        <td class="fw-bold text-success text-end text-nowrap">৳{{ service.charge|floatformat:0 }}</td>
+                        <td class="small text-muted">
+                            {% if service.description %}
+                                {{ service.description|truncatechars:90 }}
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
                     </tr>
                     {% empty %}
                     <tr><td colspan="4" class="text-muted text-center py-3">No services added</td></tr>
@@ -126,8 +143,8 @@
                     {% if agreement.services.count > 0 %}
                     <tfoot>
                         <tr class="table-light">
-                            <td colspan="2" class="fw-bold text-end">Total Value:</td>
-                            <td class="fw-bold text-primary" colspan="2">৳{{ agreement.total_value|floatformat:0 }}</td>
+                            <td colspan="3" class="fw-bold text-end">Total Value</td>
+                            <td class="fw-bold text-primary text-end text-nowrap">৳{{ agreement.total_value|floatformat:0 }}</td>
                         </tr>
                     </tfoot>
                     {% endif %}

@@ -2,6 +2,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
+import json
 from .models import Client, Agreement, Service
 from accounts.models import UserProfile
 
@@ -56,6 +57,19 @@ def client_detail(request, pk):
     client = get_object_or_404(Client, pk=pk)
     profile = get_user_profile(request.user)
     agreements = client.agreements.prefetch_related('services').all()
+    service_type_choices = dict(Service._meta.get_field('service_type').choices)
+    # Each Service row may contain multiple names (one per line).
+    for ag in agreements:
+        ag.grouped_services = []
+        for s in ag.services.all():
+            names = [n.strip() for n in (s.name or '').splitlines() if n.strip()]
+            ag.grouped_services.append({
+                'names': names if names else ['—'],
+                'service_type': s.service_type,
+                'service_type_label': service_type_choices.get(s.service_type, s.service_type),
+                'charge': s.charge,
+                'description': s.description or '',
+            })
     return render(request, 'clients/client_detail.html', {
         'client': client,
         'agreements': agreements,
@@ -108,16 +122,37 @@ def agreement_add(request, client_pk):
         agreement.save()
 
         # Add services
-        service_names = request.POST.getlist('service_name[]')
+        service_names_json = request.POST.getlist('service_names_json[]')
         service_types = request.POST.getlist('service_type[]')
         service_charges = request.POST.getlist('service_charge[]')
         service_descs = request.POST.getlist('service_description[]')
 
-        for i in range(len(service_names)):
-            if service_names[i]:
+        # Backward compatibility: if older template posts flat service_name[]
+        if not service_names_json:
+            service_names = request.POST.getlist('service_name[]')
+            for i in range(len(service_names)):
+                if service_names[i]:
+                    Service.objects.create(
+                        agreement=agreement,
+                        name=service_names[i],
+                        service_type=service_types[i] if i < len(service_types) else 'monthly',
+                        charge=service_charges[i] if i < len(service_charges) else 0,
+                        description=service_descs[i] if i < len(service_descs) else '',
+                    )
+        else:
+            for i in range(len(service_names_json)):
+                raw = service_names_json[i]
+                try:
+                    names = json.loads(raw) if raw else []
+                except json.JSONDecodeError:
+                    names = []
+                cleaned = [n.strip() for n in names if isinstance(n, str) and n.strip()]
+                if not cleaned:
+                    continue
+                # One row = one charge. Store multiple names in one Service (one per line).
                 Service.objects.create(
                     agreement=agreement,
-                    name=service_names[i],
+                    name="\n".join(cleaned),
                     service_type=service_types[i] if i < len(service_types) else 'monthly',
                     charge=service_charges[i] if i < len(service_charges) else 0,
                     description=service_descs[i] if i < len(service_descs) else '',
@@ -129,7 +164,7 @@ def agreement_add(request, client_pk):
     return render(request, 'clients/agreement_form.html', {
         'client': client,
         'profile': profile,
-        'service_types': Service._meta.get_field('service_type').choices
+        'service_types': Service._meta.get_field('service_type').choices,
     })
 
 
@@ -155,16 +190,36 @@ def agreement_edit(request, pk):
 
         # Update services
         agreement.services.all().delete()
-        service_names = request.POST.getlist('service_name[]')
+        service_names_json = request.POST.getlist('service_names_json[]')
         service_types = request.POST.getlist('service_type[]')
         service_charges = request.POST.getlist('service_charge[]')
         service_descs = request.POST.getlist('service_description[]')
 
-        for i in range(len(service_names)):
-            if service_names[i]:
+        # Backward compatibility: if older template posts flat service_name[]
+        if not service_names_json:
+            service_names = request.POST.getlist('service_name[]')
+            for i in range(len(service_names)):
+                if service_names[i]:
+                    Service.objects.create(
+                        agreement=agreement,
+                        name=service_names[i],
+                        service_type=service_types[i] if i < len(service_types) else 'monthly',
+                        charge=service_charges[i] if i < len(service_charges) else 0,
+                        description=service_descs[i] if i < len(service_descs) else '',
+                    )
+        else:
+            for i in range(len(service_names_json)):
+                raw = service_names_json[i]
+                try:
+                    names = json.loads(raw) if raw else []
+                except json.JSONDecodeError:
+                    names = []
+                cleaned = [n.strip() for n in names if isinstance(n, str) and n.strip()]
+                if not cleaned:
+                    continue
                 Service.objects.create(
                     agreement=agreement,
-                    name=service_names[i],
+                    name="\n".join(cleaned),
                     service_type=service_types[i] if i < len(service_types) else 'monthly',
                     charge=service_charges[i] if i < len(service_charges) else 0,
                     description=service_descs[i] if i < len(service_descs) else '',
@@ -173,11 +228,24 @@ def agreement_edit(request, pk):
         messages.success(request, 'Agreement updated successfully.')
         return redirect('client_detail', pk=client.pk)
 
+    # Each Service row may contain multiple names (one per line)
+    service_groups = []
+    if agreement:
+        for s in agreement.services.all():
+            names = [n.strip() for n in (s.name or '').splitlines() if n.strip()]
+            service_groups.append({
+                'names': names if names else [''],
+                'service_type': s.service_type,
+                'charge': s.charge,
+                'description': s.description or '',
+            })
+
     return render(request, 'clients/agreement_form.html', {
         'client': client,
         'agreement': agreement,
         'profile': profile,
-        'service_types': Service._meta.get_field('service_type').choices
+        'service_types': Service._meta.get_field('service_type').choices,
+        'service_groups': service_groups,
     })
 
 

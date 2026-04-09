@@ -70,7 +70,7 @@
                 <table class="table table-bordered" id="servicesTable">
                     <thead class="table-light">
                         <tr>
-                            <th>Service Name <span class="text-danger">*</span></th>
+                            <th>Service Name(s) <span class="text-danger">*</span></th>
                             <th width="160">Type</th>
                             <th width="140">Charge (BDT)</th>
                             <th>Description</th>
@@ -78,25 +78,45 @@
                         </tr>
                     </thead>
                     <tbody id="serviceRows">
-                    {% if agreement %}
-                        {% for service in agreement.services.all %}
+                    {% if agreement and service_groups %}
+                        {% for group in service_groups %}
                         <tr>
-                            <td><input type="text" name="service_name[]" class="form-control form-control-sm" value="{{ service.name }}" required></td>
+                            <td>
+                                <input type="hidden" name="service_names_json[]" class="service-names-json" value="">
+                                <div class="service-names">
+                                    {% for n in group.names %}
+                                    <div class="input-group input-group-sm mb-2 service-name-item">
+                                        <input type="text" class="form-control service-name-input" value="{{ n }}" required>
+                                        <button class="btn btn-outline-secondary" type="button" onclick="addServiceName(this)" title="Add another name">+</button>
+                                        <button class="btn btn-outline-danger" type="button" onclick="removeServiceName(this)" title="Remove this name"><i class="bi bi-dash"></i></button>
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                            </td>
                             <td>
                                 <select name="service_type[]" class="form-select form-select-sm">
                                     {% for val, label in service_types %}
-                                    <option value="{{ val }}" {% if service.service_type == val %}selected{% endif %}>{{ label }}</option>
+                                    <option value="{{ val }}" {% if group.service_type == val %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
                             </td>
-                            <td><input type="number" name="service_charge[]" class="form-control form-control-sm" step="0.01" value="{{ service.charge }}" required></td>
-                            <td><input type="text" name="service_description[]" class="form-control form-control-sm" value="{{ service.description|default:'' }}"></td>
+                            <td><input type="number" name="service_charge[]" class="form-control form-control-sm" step="0.01" value="{{ group.charge }}" required></td>
+                            <td><input type="text" name="service_description[]" class="form-control form-control-sm" value="{{ group.description|default:'' }}"></td>
                             <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash3"></i></button></td>
                         </tr>
                         {% endfor %}
                     {% else %}
                         <tr>
-                            <td><input type="text" name="service_name[]" class="form-control form-control-sm" placeholder="e.g. Website Hosting" required></td>
+                            <td>
+                                <input type="hidden" name="service_names_json[]" class="service-names-json" value="">
+                                <div class="service-names">
+                                    <div class="input-group input-group-sm mb-2 service-name-item">
+                                        <input type="text" class="form-control service-name-input" placeholder="e.g. Fire Alarm System" required>
+                                        <button class="btn btn-outline-secondary" type="button" onclick="addServiceName(this)" title="Add another name">+</button>
+                                        <button class="btn btn-outline-danger" type="button" onclick="removeServiceName(this)" title="Remove this name"><i class="bi bi-dash"></i></button>
+                                    </div>
+                                </div>
+                            </td>
                             <td>
                                 <select name="service_type[]" class="form-select form-select-sm">
                                     {% for val, label in service_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
@@ -127,13 +147,42 @@ function addServiceRow() {
     const tbody = document.getElementById('serviceRows');
     const tr = document.createElement('tr');
     tr.innerHTML = `
-        <td><input type="text" name="service_name[]" class="form-control form-control-sm" placeholder="Service name" required></td>
+        <td>
+            <input type="hidden" name="service_names_json[]" class="service-names-json" value="">
+            <div class="service-names">
+                <div class="input-group input-group-sm mb-2 service-name-item">
+                    <input type="text" class="form-control service-name-input" placeholder="e.g. Fire Alarm System" required>
+                    <button class="btn btn-outline-secondary" type="button" onclick="addServiceName(this)" title="Add another name">+</button>
+                    <button class="btn btn-outline-danger" type="button" onclick="removeServiceName(this)" title="Remove this name"><i class="bi bi-dash"></i></button>
+                </div>
+            </div>
+        </td>
         <td><select name="service_type[]" class="form-select form-select-sm">${serviceTypeOptions}</select></td>
         <td><input type="number" name="service_charge[]" class="form-control form-control-sm" step="0.01" placeholder="0.00" required></td>
         <td><input type="text" name="service_description[]" class="form-control form-control-sm" placeholder="Description..."></td>
         <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash3"></i></button></td>
     `;
     tbody.appendChild(tr);
+}
+
+function addServiceName(btn) {
+    const item = btn.closest('.service-name-item');
+    const container = item.closest('.service-names');
+    const clone = item.cloneNode(true);
+    const input = clone.querySelector('.service-name-input');
+    input.value = '';
+    container.appendChild(clone);
+    input.focus();
+}
+
+function removeServiceName(btn) {
+    const container = btn.closest('.service-names');
+    const items = container.querySelectorAll('.service-name-item');
+    if (items.length > 1) {
+        btn.closest('.service-name-item').remove();
+    } else {
+        alert('At least one service name is required in a row.');
+    }
 }
 
 function removeRow(btn) {
@@ -144,5 +193,29 @@ function removeRow(btn) {
         alert('At least one service is required.');
     }
 }
+
+function syncServiceNamesJsonForRow(tr) {
+    const hidden = tr.querySelector('.service-names-json');
+    const names = Array.from(tr.querySelectorAll('.service-name-input'))
+        .map(i => (i.value || '').trim())
+        .filter(v => v.length > 0);
+    hidden.value = JSON.stringify(names);
+}
+
+function syncAllServiceNamesJson() {
+    document.querySelectorAll('#serviceRows tr').forEach(tr => syncServiceNamesJsonForRow(tr));
+}
+
+// Keep JSON in sync on submit (and also when typing)
+document.addEventListener('input', (e) => {
+    if (e.target && e.target.classList.contains('service-name-input')) {
+        const tr = e.target.closest('tr');
+        if (tr) syncServiceNamesJsonForRow(tr);
+    }
+});
+
+document.querySelector('form')?.addEventListener('submit', () => {
+    syncAllServiceNamesJson();
+});
 </script>
 {% endblock %}

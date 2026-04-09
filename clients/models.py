@@ -66,7 +66,8 @@ class Agreement(models.Model):
 
 class Service(models.Model):
     agreement = models.ForeignKey(Agreement, on_delete=models.CASCADE, related_name='services')
-    name = models.CharField(max_length=255, verbose_name='Service Name')
+    # Can contain multiple service names (one per line) when a single charge applies to all.
+    name = models.TextField(verbose_name='Service Name')
     service_type = models.CharField(max_length=20, choices=SERVICE_TYPE_CHOICES, default='monthly')
     charge = models.DecimalField(max_digits=12, decimal_places=2, verbose_name='Charge (BDT)')
     description = models.TextField(blank=True, null=True, verbose_name='Service Description')
