@@ -107,27 +107,37 @@
                         </a>
                     </div>
                     {% endif %}
-                <table class="table table-sm align-middle mb-0">
+                <table class="table table-sm align-middle mb-0" style="table-layout:fixed;">
                     <thead class="table-light"><tr>
-                        <th class="text-uppercase text-muted small fw-semibold" style="letter-spacing:.04em;">Service</th>
-                        <th class="text-uppercase text-muted small fw-semibold text-nowrap" style="letter-spacing:.04em; width:140px;">Type</th>
-                        <th class="text-uppercase text-muted small fw-semibold text-nowrap text-end" style="letter-spacing:.04em; width:140px;">Charge</th>
-                        <th class="text-uppercase text-muted small fw-semibold" style="letter-spacing:.04em;">Description</th>
+                        <th class="text-uppercase text-muted small fw-semibold" style="letter-spacing:.04em; width:34%;">Service</th>
+                        <th class="text-uppercase text-muted small fw-semibold text-nowrap" style="letter-spacing:.04em; width:12%;">Type</th>
+                        <th class="text-uppercase text-muted small fw-semibold text-nowrap text-end" style="letter-spacing:.04em; width:9%;">Charge (BDT)</th>
+                        <th class="text-uppercase text-muted small fw-semibold text-nowrap text-end" style="letter-spacing:.04em; width:11%;">Monthly</th>
+                        <th class="text-uppercase text-muted small fw-semibold text-nowrap text-end" style="letter-spacing:.04em; width:11%;">Yearly</th>
+                        <th class="text-uppercase text-muted small fw-semibold text-nowrap text-end" style="letter-spacing:.04em; width:12%;">Total AMC</th>
+                        <th class="text-uppercase text-muted small fw-semibold" style="letter-spacing:.04em; width:11%;">Description</th>
                     </tr></thead>
                     <tbody>
                     {% for service in agreement.grouped_services %}
                     <tr>
-                        <td class="fw-semibold">
+                        <td class="fw-semibold" style="word-break:break-word;">
                             <ul class="list-unstyled mb-0">
                                 {% for n in service.names %}
-                                <li class="mb-1">{{ n }}</li>
+                                <li class="mb-1" style="font-size:0.9rem;">{{ n }}</li>
                                 {% endfor %}
                             </ul>
                         </td>
                         <td class="text-nowrap">
-                            <span class="badge bg-primary-subtle text-primary rounded-pill px-3 py-2">{{ service.service_type_label }}</span>
+                            <span
+                                class="badge bg-primary-subtle text-primary rounded-pill px-2 py-2"
+                                style="display:inline-block; max-width:100%; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;"
+                                title="{{ service.service_type_label }}"
+                            >{{ service.service_type_label }}</span>
                         </td>
                         <td class="fw-bold text-success text-end text-nowrap">৳{{ service.charge|floatformat:0 }}</td>
+                        <td class="text-end text-nowrap">৳{{ service.monthly_amount|floatformat:0 }}</td>
+                        <td class="text-end text-nowrap">৳{{ service.yearly_amount|floatformat:0 }}</td>
+                        <td class="text-end text-nowrap fw-semibold text-primary">৳{{ service.total_amc_amount|floatformat:0 }}</td>
                         <td class="small text-muted">
                             {% if service.description %}
                                 {{ service.description|truncatechars:90 }}
@@ -137,18 +147,26 @@
                         </td>
                     </tr>
                     {% empty %}
-                    <tr><td colspan="4" class="text-muted text-center py-3">No services added</td></tr>
+                    <tr><td colspan="7" class="text-muted text-center py-3">No services added</td></tr>
                     {% endfor %}
                     </tbody>
-                    {% if agreement.services.count > 0 %}
-                    <tfoot>
-                        <tr class="table-light">
-                            <td colspan="3" class="fw-bold text-end">Total Value</td>
-                            <td class="fw-bold text-primary text-end text-nowrap">৳{{ agreement.total_value|floatformat:0 }}</td>
-                        </tr>
-                    </tfoot>
-                    {% endif %}
                 </table>
+                {% if agreement.services.count > 0 %}
+                <div class="d-flex flex-wrap justify-content-end gap-2 mt-2">
+                    <div class="border rounded-3 px-3 py-2 bg-light">
+                        <div class="text-muted small fw-semibold text-uppercase" style="letter-spacing:.04em;">Total Monthly Amount</div>
+                        <div class="fw-bold text-end text-nowrap">৳{{ agreement.total_monthly_amount|floatformat:0 }}</div>
+                    </div>
+                    <div class="border rounded-3 px-3 py-2 bg-light">
+                        <div class="text-muted small fw-semibold text-uppercase" style="letter-spacing:.04em;">Total Yearly Amount</div>
+                        <div class="fw-bold text-end text-nowrap">৳{{ agreement.total_yearly_amount|floatformat:0 }}</div>
+                    </div>
+                    <div class="border rounded-3 px-3 py-2" style="background:#f0f7ff;">
+                        <div class="text-muted small fw-semibold text-uppercase" style="letter-spacing:.04em;">Total AMC Amount</div>
+                        <div class="fw-bold text-primary text-end text-nowrap">৳{{ agreement.total_value|floatformat:0 }}</div>
+                    </div>
+                </div>
+                {% endif %}
             </div>
         </div>
         {% empty %}

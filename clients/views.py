@@ -60,14 +60,65 @@ def client_detail(request, pk):
     service_type_choices = dict(Service._meta.get_field('service_type').choices)
     # Each Service row may contain multiple names (one per line).
     for ag in agreements:
+        months = Agreement._months_in_period(ag.start_date, ag.end_date) if ag.end_date else 0
+        years = Agreement._years_in_period(ag.start_date, ag.end_date) if ag.end_date else 0
         ag.grouped_services = []
+        ag.total_monthly_amount = 0
+        ag.total_yearly_amount = 0
         for s in ag.services.all():
+            from decimal import Decimal, InvalidOperation
             names = [n.strip() for n in (s.name or '').splitlines() if n.strip()]
+            try:
+                charge = Decimal(str(s.charge or 0))
+            except (InvalidOperation, TypeError, ValueError):
+                charge = Decimal('0')
+
+            st = (s.service_type or '').lower()
+            if st == 'monthly':
+                monthly_amount = charge
+                yearly_amount = charge * Decimal('12')
+            elif st in ('annual', 'yearly'):
+                # charge is treated as yearly
+                monthly_amount = charge / Decimal('12') if charge else Decimal('0')
+                yearly_amount = charge
+            elif st == 'quarterly':
+                monthly_amount = charge / Decimal('3') if charge else Decimal('0')
+                yearly_amount = charge * Decimal('4')
+            elif st == 'semi_annual':
+                monthly_amount = charge / Decimal('6') if charge else Decimal('0')
+                yearly_amount = charge * Decimal('2')
+            elif st == 'one_time':
+                monthly_amount = charge
+                yearly_amount = charge
+            else:
+                monthly_amount = charge
+                yearly_amount = charge * Decimal('12')
+
+            if st in ('annual', 'yearly'):
+                total_amc = charge * Decimal(years or 0)
+            elif st == 'monthly':
+                total_amc = monthly_amount * Decimal(months or 0)
+            elif st == 'quarterly':
+                periods = (months + 2) // 3 if months else 0
+                total_amc = charge * Decimal(periods)
+            elif st == 'semi_annual':
+                periods = (months + 5) // 6 if months else 0
+                total_amc = charge * Decimal(periods)
+            elif st == 'one_time':
+                total_amc = charge
+            else:
+                total_amc = charge
+
+            ag.total_monthly_amount += monthly_amount
+            ag.total_yearly_amount += yearly_amount
             ag.grouped_services.append({
                 'names': names if names else ['—'],
                 'service_type': s.service_type,
                 'service_type_label': service_type_choices.get(s.service_type, s.service_type),
-                'charge': s.charge,
+                'charge': charge,
+                'monthly_amount': monthly_amount,
+                'yearly_amount': yearly_amount,
+                'total_amc_amount': total_amc,
                 'description': s.description or '',
             })
     return render(request, 'clients/client_detail.html', {

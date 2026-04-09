@@ -25,11 +25,11 @@
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">Start Date <span class="text-danger">*</span></label>
-                    <input type="date" name="start_date" class="form-control" value="{{ agreement.start_date|default:'' }}" required>
+                    <input type="date" name="start_date" class="form-control" value="{% if agreement and agreement.start_date %}{{ agreement.start_date|date:'Y-m-d' }}{% endif %}" required>
                 </div>
                 <div class="col-md-3">
                     <label class="form-label">End Date</label>
-                    <input type="date" name="end_date" class="form-control" value="{{ agreement.end_date|default:'' }}">
+                    <input type="date" name="end_date" class="form-control" value="{% if agreement and agreement.end_date %}{{ agreement.end_date|date:'Y-m-d' }}{% endif %}">
                 </div>
                 <div class="col-12">
                     <label class="form-label">Notes</label>
@@ -67,14 +67,17 @@
             </div>
 
             <div class="table-responsive">
-                <table class="table table-bordered" id="servicesTable">
+                <table class="table table-bordered align-middle" id="servicesTable" style="table-layout:fixed;">
                     <thead class="table-light">
                         <tr>
-                            <th>Service Name(s) <span class="text-danger">*</span></th>
-                            <th width="160">Type</th>
-                            <th width="140">Charge (BDT)</th>
-                            <th>Description</th>
-                            <th width="50"></th>
+                            <th style="width:38%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Service Name(s) <span class="text-danger">*</span></th>
+                            <th style="width:12%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-left:.35rem;">Type</th>
+                            <th class="text-end" style="width:9%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:.35rem;">Charge (BDT)</th>
+                            <th class="text-end" style="width:8%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:.35rem;">Monthly (BDT)</th>
+                            <th class="text-end" style="width:8%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:.35rem;">Yearly</th>
+                            <th class="text-end" style="width:9%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; padding-right:.35rem;">Total AMC</th>
+                            <th style="width:14%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">Description</th>
+                            <th class="text-center" style="width:60px; min-width:60px; white-space:nowrap;"></th>
                         </tr>
                     </thead>
                     <tbody id="serviceRows">
@@ -86,23 +89,28 @@
                                 <div class="service-names">
                                     {% for n in group.names %}
                                     <div class="input-group input-group-sm mb-2 service-name-item">
-                                        <input type="text" class="form-control service-name-input" value="{{ n }}" required>
+                                        <input type="text" class="form-control service-name-input" value="{{ n }}" required style="font-size:0.85rem;">
                                         <button class="btn btn-outline-secondary" type="button" onclick="addServiceName(this)" title="Add another name">+</button>
                                         <button class="btn btn-outline-danger" type="button" onclick="removeServiceName(this)" title="Remove this name"><i class="bi bi-dash"></i></button>
                                     </div>
                                     {% endfor %}
                                 </div>
                             </td>
-                            <td>
+                            <td style="padding-left:.4rem;">
                                 <select name="service_type[]" class="form-select form-select-sm">
                                     {% for val, label in service_types %}
                                     <option value="{{ val }}" {% if group.service_type == val %}selected{% endif %}>{{ label }}</option>
                                     {% endfor %}
                                 </select>
                             </td>
-                            <td><input type="number" name="service_charge[]" class="form-control form-control-sm" step="0.01" value="{{ group.charge }}" required></td>
-                            <td><input type="text" name="service_description[]" class="form-control form-control-sm" value="{{ group.description|default:'' }}"></td>
-                            <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash3"></i></button></td>
+                            <td><input type="number" name="service_charge[]" class="form-control form-control-sm" step="0.01" value="{{ group.charge }}" required style="font-size:0.85rem;"></td>
+                            <td class="text-end fw-semibold" style="padding:.35rem .4rem;"><span class="amc-monthly">৳0</span></td>
+                            <td class="text-end fw-semibold" style="padding:.35rem .4rem;"><span class="amc-yearly">৳0</span></td>
+                            <td class="text-end fw-semibold" style="padding:.35rem .4rem;"><span class="amc-total">৳0</span></td>
+                            <td><input type="text" name="service_description[]" class="form-control form-control-sm" value="{{ group.description|default:'' }}" style="font-size:0.85rem;"></td>
+                            <td class="text-center" style="width:60px; min-width:60px; padding:.35rem .25rem;">
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash3"></i></button>
+                            </td>
                         </tr>
                         {% endfor %}
                     {% else %}
@@ -111,24 +119,44 @@
                                 <input type="hidden" name="service_names_json[]" class="service-names-json" value="">
                                 <div class="service-names">
                                     <div class="input-group input-group-sm mb-2 service-name-item">
-                                        <input type="text" class="form-control service-name-input" placeholder="e.g. Fire Alarm System" required>
+                                        <input type="text" class="form-control service-name-input" placeholder="e.g. Fire Alarm System" required style="font-size:0.85rem;">
                                         <button class="btn btn-outline-secondary" type="button" onclick="addServiceName(this)" title="Add another name">+</button>
                                         <button class="btn btn-outline-danger" type="button" onclick="removeServiceName(this)" title="Remove this name"><i class="bi bi-dash"></i></button>
                                     </div>
                                 </div>
                             </td>
-                            <td>
+                            <td style="padding-left:.4rem;">
                                 <select name="service_type[]" class="form-select form-select-sm">
                                     {% for val, label in service_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
                                 </select>
                             </td>
-                            <td><input type="number" name="service_charge[]" class="form-control form-control-sm" step="0.01" placeholder="0.00" required></td>
-                            <td><input type="text" name="service_description[]" class="form-control form-control-sm" placeholder="Brief description..."></td>
-                            <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash3"></i></button></td>
+                            <td><input type="number" name="service_charge[]" class="form-control form-control-sm" step="0.01" placeholder="0.00" required style="font-size:0.85rem;"></td>
+                            <td class="text-end fw-semibold" style="padding:.35rem .4rem;"><span class="amc-monthly">৳0</span></td>
+                            <td class="text-end fw-semibold" style="padding:.35rem .4rem;"><span class="amc-yearly">৳0</span></td>
+                            <td class="text-end fw-semibold" style="padding:.35rem .4rem;"><span class="amc-total">৳0</span></td>
+                            <td><input type="text" name="service_description[]" class="form-control form-control-sm" placeholder="Brief description..." style="font-size:0.85rem;"></td>
+                            <td class="text-center" style="width:60px; min-width:60px; padding:.35rem .25rem;">
+                                <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash3"></i></button>
+                            </td>
                         </tr>
                     {% endif %}
                     </tbody>
                 </table>
+            </div>
+
+            <div class="d-flex flex-wrap justify-content-end gap-2 mt-2">
+                <div class="border rounded-3 px-3 py-2 bg-light">
+                    <div class="text-muted small fw-semibold text-uppercase" style="letter-spacing:.04em;">Total Monthly Amount</div>
+                    <div class="fw-bold text-end" id="amcGrandMonthly">৳0</div>
+                </div>
+                <div class="border rounded-3 px-3 py-2 bg-light">
+                    <div class="text-muted small fw-semibold text-uppercase" style="letter-spacing:.04em;">Total Yearly Amount</div>
+                    <div class="fw-bold text-end" id="amcGrandYearly">৳0</div>
+                </div>
+                <div class="border rounded-3 px-3 py-2" style="background:#f0f7ff;">
+                    <div class="text-muted small fw-semibold text-uppercase" style="letter-spacing:.04em;">Total AMC Amount</div>
+                    <div class="fw-bold text-primary text-end" id="amcGrandTotal">৳0</div>
+                </div>
             </div>
 
             <div class="d-flex gap-2 mt-4">
@@ -157,12 +185,18 @@ function addServiceRow() {
                 </div>
             </div>
         </td>
-        <td><select name="service_type[]" class="form-select form-select-sm">${serviceTypeOptions}</select></td>
-        <td><input type="number" name="service_charge[]" class="form-control form-control-sm" step="0.01" placeholder="0.00" required></td>
+        <td style="padding-left:.4rem;"><select name="service_type[]" class="form-select form-select-sm">${serviceTypeOptions}</select></td>
+        <td><input type="number" name="service_charge[]" class="form-control form-control-sm" step="0.01" placeholder="0.00" required style="font-size:0.85rem;"></td>
+        <td class="text-end fw-semibold" style="padding:.35rem .4rem;"><span class="amc-monthly">৳0</span></td>
+        <td class="text-end fw-semibold" style="padding:.35rem .4rem;"><span class="amc-yearly">৳0</span></td>
+        <td class="text-end fw-semibold" style="padding:.35rem .4rem;"><span class="amc-total">৳0</span></td>
         <td><input type="text" name="service_description[]" class="form-control form-control-sm" placeholder="Description..."></td>
-        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash3"></i></button></td>
+        <td class="text-center" style="width:60px; min-width:60px; padding:.35rem .25rem;">
+            <button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash3"></i></button>
+        </td>
     `;
     tbody.appendChild(tr);
+    recalcAmcTotals();
 }
 
 function addServiceName(btn) {
@@ -189,6 +223,7 @@ function removeRow(btn) {
     const rows = document.getElementById('serviceRows').querySelectorAll('tr');
     if (rows.length > 1) {
         btn.closest('tr').remove();
+        recalcAmcTotals();
     } else {
         alert('At least one service is required.');
     }
@@ -217,5 +252,124 @@ document.addEventListener('input', (e) => {
 document.querySelector('form')?.addEventListener('submit', () => {
     syncAllServiceNamesJson();
 });
+
+function parseDate(val) {
+    if (!val) return null;
+    const d = new Date(val + 'T00:00:00');
+    return Number.isNaN(d.getTime()) ? null : d;
+}
+
+function monthsInPeriod(start, end) {
+    if (!start || !end || end <= start) return 0;
+    let months = (end.getFullYear() - start.getFullYear()) * 12 + (end.getMonth() - start.getMonth());
+    if (end.getDate() >= start.getDate()) months += 1;
+    return Math.max(months, 0);
+}
+
+function yearsInPeriod(start, end) {
+    if (!start || !end || end <= start) return 0;
+    let years = end.getFullYear() - start.getFullYear();
+    const endMD = [end.getMonth(), end.getDate()];
+    const startMD = [start.getMonth(), start.getDate()];
+    if (endMD[0] > startMD[0] || (endMD[0] === startMD[0] && endMD[1] >= startMD[1])) years += 1;
+    return Math.max(years, 0);
+}
+
+function formatBDT(n) {
+    const v = Number(n || 0);
+    return '৳' + v.toLocaleString('en-IN', { maximumFractionDigits: 0 });
+}
+
+function monthlyYearlyFromType(type, charge) {
+    const t = (type || '').toLowerCase();
+    const c = Number(charge || 0);
+    if (t === 'monthly') return { monthly: c, yearly: c * 12 };
+    if (t === 'annual' || t === 'yearly') return { monthly: c / 12, yearly: c }; // charge is yearly
+    if (t === 'quarterly') return { monthly: c / 3, yearly: c * 4 };
+    if (t === 'semi_annual') return { monthly: c / 6, yearly: c * 2 };
+    if (t === 'one_time') return { monthly: c, yearly: c };
+    return { monthly: c, yearly: c * 12 };
+}
+
+function rowAmcTotal(tr, months, years) {
+    const type = (tr.querySelector('select[name="service_type[]"]')?.value || '').toLowerCase();
+    const charge = parseFloat(tr.querySelector('input[name="service_charge[]"]')?.value || '0') || 0;
+
+    if (!months && !years) return 0;
+
+    if (type === 'monthly') return charge * months;
+    if (type === 'annual' || type === 'yearly') return charge * years;
+    if (type === 'quarterly') return charge * (months ? Math.ceil(months / 3) : 0);
+    if (type === 'semi_annual') return charge * (months ? Math.ceil(months / 6) : 0);
+    if (type === 'one_time') return charge;
+    return charge;
+}
+
+function recalcAmcTotals() {
+    const startEl = document.querySelector('input[name="start_date"]');
+    const endEl = document.querySelector('input[name="end_date"]');
+    const start = parseDate(startEl?.value);
+    const end = parseDate(endEl?.value);
+
+    // If end date is empty, show 0 totals (user asked AMC period start-to-end)
+    const months = monthsInPeriod(start, end);
+    const years = yearsInPeriod(start, end);
+
+    let grand = 0;
+    let grandMonthly = 0;
+    let grandYearly = 0;
+    document.querySelectorAll('#serviceRows tr').forEach(tr => {
+        const type = (tr.querySelector('select[name="service_type[]"]')?.value || '').toLowerCase();
+        const charge = parseFloat(tr.querySelector('input[name="service_charge[]"]')?.value || '0') || 0;
+        const my = monthlyYearlyFromType(type, charge);
+        const monthlyAmt = my.monthly;
+        const yearlyAmt = my.yearly;
+        const total = rowAmcTotal(tr, months, years);
+        grand += total;
+        grandMonthly += monthlyAmt;
+        grandYearly += yearlyAmt;
+        const outM = tr.querySelector('.amc-monthly');
+        const outY = tr.querySelector('.amc-yearly');
+        const outT = tr.querySelector('.amc-total');
+        if (outM) outM.textContent = formatBDT(monthlyAmt);
+        if (outY) outY.textContent = formatBDT(yearlyAmt);
+        if (outT) outT.textContent = formatBDT(total);
+    });
+    const gt = document.getElementById('amcGrandTotal');
+    if (gt) gt.textContent = formatBDT(grand);
+    const gm = document.getElementById('amcGrandMonthly');
+    if (gm) gm.textContent = formatBDT(grandMonthly);
+    const gy = document.getElementById('amcGrandYearly');
+    if (gy) gy.textContent = formatBDT(grandYearly);
+
+    // Basic validation hint
+    if (endEl && startEl) {
+        if (start && end && end <= start) {
+            endEl.setCustomValidity('End date must be greater than start date.');
+        } else {
+            endEl.setCustomValidity('');
+        }
+    }
+}
+
+document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (!t) return;
+    if (
+        t.matches('input[name="start_date"]') ||
+        t.matches('input[name="end_date"]') ||
+        t.matches('input[name="service_charge[]"]') ||
+        t.matches('select[name="service_type[]"]')
+    ) {
+        recalcAmcTotals();
+    }
+});
+
+document.addEventListener('change', (e) => {
+    const t = e.target;
+    if (t && t.matches('select[name="service_type[]"]')) recalcAmcTotals();
+});
+
+recalcAmcTotals();
 </script>
 {% endblock %}

@@ -59,9 +59,71 @@ class Agreement(models.Model):
     def __str__(self):
         return f"{self.client.name} - {self.title}"
 
+    @staticmethod
+    def _months_in_period(start_date, end_date):
+        """
+        Returns the number of chargeable months between start_date and end_date.
+        Rounds up partial months (e.g. Jan 1–Dec 31 => 12, Jan 15–Feb 14 => 1).
+        """
+        if not start_date or not end_date or end_date <= start_date:
+            return 0
+        months = (end_date.year - start_date.year) * 12 + (end_date.month - start_date.month)
+        if end_date.day >= start_date.day:
+            months += 1
+        return max(months, 0)
+
+    @staticmethod
+    def _years_in_period(start_date, end_date):
+        """
+        Returns the number of chargeable years between start_date and end_date.
+        Rounds up partial years (e.g. 2026-01-01 to 2027-12-31 => 2).
+        """
+        if not start_date or not end_date or end_date <= start_date:
+            return 0
+        years = end_date.year - start_date.year
+        if (end_date.month, end_date.day) >= (start_date.month, start_date.day):
+            years += 1
+        return max(years, 0)
+
     @property
     def total_value(self):
-        return sum(s.charge for s in self.services.all())
+        """
+        AMC total based on service type + agreement period.
+
+        Rules:
+        - monthly: charge * total_months
+        - annual/yearly: charge * total_years          (charge is treated as yearly)
+        - quarterly/semi_annual: charge * ceil(total_months / N)
+        - one_time: charge
+        """
+        from decimal import Decimal, InvalidOperation
+        total = Decimal('0')
+        months = self._months_in_period(self.start_date, self.end_date) if self.end_date else 0
+        years = self._years_in_period(self.start_date, self.end_date) if self.end_date else 0
+
+        for s in self.services.all():
+            try:
+                charge = Decimal(str(s.charge or 0))
+            except (InvalidOperation, TypeError, ValueError):
+                charge = Decimal('0')
+
+            st = (s.service_type or '').lower()
+            if st in ('annual', 'yearly'):
+                total += charge * Decimal(years or 0)
+            elif st == 'monthly':
+                total += charge * Decimal(months or 0)
+            elif st == 'quarterly':
+                periods = (months + 2) // 3 if months else 0
+                total += charge * Decimal(periods)
+            elif st == 'semi_annual':
+                periods = (months + 5) // 6 if months else 0
+                total += charge * Decimal(periods)
+            elif st == 'one_time':
+                total += charge
+            else:
+                total += charge
+
+        return total
 
 
 class Service(models.Model):
