@@ -105,6 +105,9 @@
                         <a class="btn btn-sm btn-outline-primary" href="{{ agreement.attachment.url }}" target="_blank" rel="noopener" download>
                             <i class="bi bi-download me-1"></i>Download Agreement Copy
                         </a>
+                        <a class="btn btn-sm btn-outline-secondary ms-2" href="{% url 'agreement_sheet_excel' agreement.pk %}">
+                            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Download Agreement Cost Sheet
+                        </a>
                     </div>
                     {% endif %}
                 <table class="table table-sm align-middle mb-0" style="table-layout:fixed;">

@@ -9,4 +9,5 @@ urlpatterns = [
     path('<int:client_pk>/agreement/add/', views.agreement_add, name='agreement_add'),
     path('agreement/<int:pk>/edit/', views.agreement_edit, name='agreement_edit'),
     path('agreement/<int:pk>/delete/', views.agreement_delete, name='agreement_delete'),
+    path('agreement/<int:pk>/sheet/', views.agreement_sheet_excel, name='agreement_sheet_excel'),
 ]

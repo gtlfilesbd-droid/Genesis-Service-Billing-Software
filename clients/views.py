@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.core.paginator import Paginator
 import json
+from django.http import HttpResponse
 from .models import Client, Agreement, Service
 from accounts.models import UserProfile
 
@@ -126,6 +127,134 @@ def client_detail(request, pk):
         'agreements': agreements,
         'profile': profile
     })
+
+
+@login_required
+def agreement_sheet_excel(request, pk):
+    """
+    Download an Excel sheet for a single agreement's services
+    in the same format as the view table (Service/Type/Charge/Monthly/Yearly/Total AMC/Description).
+    """
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, Alignment, PatternFill
+    except ImportError:
+        messages.error(request, 'openpyxl not installed.')
+        return redirect('client_list')
+
+    agreement = get_object_or_404(Agreement.objects.select_related('client').prefetch_related('services'), pk=pk)
+
+    months = Agreement._months_in_period(agreement.start_date, agreement.end_date) if agreement.end_date else 0
+    years = Agreement._years_in_period(agreement.start_date, agreement.end_date) if agreement.end_date else 0
+
+    service_type_choices = dict(Service._meta.get_field('service_type').choices)
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = f"Agreement-{agreement.pk}"
+
+    bf = Font(bold=True)
+    header_fill = PatternFill('solid', fgColor='1565C0')
+    header_font = Font(bold=True, color='FFFFFF')
+
+    # Title
+    ws.merge_cells('A1:G1')
+    ws['A1'] = f"{agreement.client.name} — {agreement.title}"
+    ws['A1'].font = Font(size=14, bold=True, color='1565C0')
+    ws['A1'].alignment = Alignment(horizontal='center')
+
+    ws.merge_cells('A2:G2')
+    ws['A2'] = f"AMC Period: {agreement.start_date} — {agreement.end_date or 'Ongoing'}"
+    ws['A2'].alignment = Alignment(horizontal='center')
+
+    ws.append([])
+
+    headers = ['SERVICE NAME(S)', 'TYPE', 'CHARGE (BDT)', 'MONTHLY (BDT)', 'YEARLY (BDT)', 'TOTAL AMC (BDT)', 'DESCRIPTION']
+    ws.append(headers)
+    hr = ws.max_row
+    for col in range(1, len(headers) + 1):
+        c = ws.cell(row=hr, column=col)
+        c.fill = header_fill
+        c.font = header_font
+        c.alignment = Alignment(horizontal='center', vertical='center', wrap_text=True)
+
+    total_monthly = 0
+    total_yearly = 0
+    total_amc = 0
+
+    for s in agreement.services.all():
+        names = "\n".join([n.strip() for n in (s.name or '').splitlines() if n.strip()]) or '—'
+        st = (s.service_type or '').lower()
+        charge = float(s.charge or 0)
+
+        # Monthly/Yearly shown amounts (based on type)
+        if st in ('annual', 'yearly'):
+            monthly_amt = charge / 12 if charge else 0
+            yearly_amt = charge
+            total_amt = charge * (years or 0)
+        elif st == 'monthly':
+            monthly_amt = charge
+            yearly_amt = charge * 12
+            total_amt = charge * (months or 0)
+        elif st == 'quarterly':
+            monthly_amt = charge / 3 if charge else 0
+            yearly_amt = charge * 4
+            periods = (months + 2) // 3 if months else 0
+            total_amt = charge * periods
+        elif st == 'semi_annual':
+            monthly_amt = charge / 6 if charge else 0
+            yearly_amt = charge * 2
+            periods = (months + 5) // 6 if months else 0
+            total_amt = charge * periods
+        elif st == 'one_time':
+            monthly_amt = charge
+            yearly_amt = charge
+            total_amt = charge
+        else:
+            monthly_amt = charge
+            yearly_amt = charge * 12
+            total_amt = charge
+
+        total_monthly += monthly_amt
+        total_yearly += yearly_amt
+        total_amc += total_amt
+
+        ws.append([
+            names,
+            service_type_choices.get(s.service_type, s.service_type),
+            charge,
+            monthly_amt,
+            yearly_amt,
+            total_amt,
+            (s.description or ''),
+        ])
+
+    # Totals row
+    ws.append([])
+    ws.append(['', '', '', 'TOTAL MONTHLY', total_monthly, '', ''])
+    ws.append(['', '', '', 'TOTAL YEARLY', total_yearly, '', ''])
+    ws.append(['', '', '', 'TOTAL AMC', total_amc, '', ''])
+    for r in range(ws.max_row - 2, ws.max_row + 1):
+        ws.cell(row=r, column=4).font = bf
+        ws.cell(row=r, column=5).font = bf
+
+    # Formatting
+    for row in ws.iter_rows(min_row=hr + 1, min_col=1, max_col=7):
+        row[0].alignment = Alignment(wrap_text=True, vertical='top')
+        row[6].alignment = Alignment(wrap_text=True, vertical='top')
+        for c in row[1:6]:
+            c.alignment = Alignment(vertical='top')
+
+    for col, w in zip('ABCDEFG', [34, 16, 14, 14, 14, 16, 28]):
+        ws.column_dimensions[col].width = w
+
+    filename = f"Agreement-{agreement.pk}-Services.xlsx"
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
 
 
 @login_required
