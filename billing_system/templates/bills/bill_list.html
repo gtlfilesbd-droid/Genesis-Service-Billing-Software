@@ -1,0 +1,114 @@
+{% extends 'base.html' %}
+{% block title %}Bills{% endblock %}
+{% block page_title %}Bills{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h4 class="fw-bold mb-1">Bills & Invoices</h4>
+        <p class="text-muted small mb-0">Manage all billing records</p>
+    </div>
+    {% if profile.can_generate_bill or request.user.is_superuser %}
+    <a href="{% url 'bill_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>New Bill</a>
+    {% endif %}
+</div>
+
+<!-- Filters -->
+<div class="card form-card mb-4 p-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-md-4">
+            <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Bill number or client name...">
+        </div>
+        <div class="col-md-3">
+            <select name="status" class="form-select">
+                <option value="">All Status</option>
+                {% for val, label in status_choices %}
+                <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <select name="client" class="form-select">
+                <option value="">All Clients</option>
+                {% for c in clients %}
+                <option value="{{ c.pk }}" {% if client_filter == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-auto d-flex gap-1">
+            <button type="submit" class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Filter</button>
+            <a href="{% url 'bill_list' %}" class="btn btn-outline-secondary">Reset</a>
+        </div>
+    </form>
+</div>
+
+<div class="card table-card">
+    <div class="card-body p-0">
+        <div class="table-responsive">
+            <table class="table table-hover mb-0">
+                <thead>
+                    <tr>
+                        <th class="ps-3">Bill #</th>
+                        <th>Client</th>
+                        <th>Bill Date</th>
+                        <th>Due Date</th>
+                        <th>Period</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                {% for bill in bills %}
+                <tr>
+                    <td class="ps-3">
+                        <a href="{% url 'bill_detail' bill.pk %}" class="fw-bold text-primary text-decoration-none">{{ bill.bill_number }}</a>
+                    </td>
+                    <td>
+                        <a href="{% url 'client_detail' bill.client.pk %}" class="text-decoration-none text-dark">{{ bill.client.name }}</a>
+                        {% if bill.client.company %}<div class="text-muted small">{{ bill.client.company }}</div>{% endif %}
+                    </td>
+                    <td class="small">{{ bill.invoice_date }}</td>
+                    <td class="small {% if bill.is_overdue %}text-danger fw-semibold{% endif %}">{{ bill.po_date|default:"—" }}</td>
+                    <td class="small text-muted">{{ bill.bill_period|default:"—" }}</td>
+                    <td class="fw-bold">৳{{ bill.total_in_bdt|floatformat:0 }}</td>
+                    <td>
+                        <span class="badge badge-{{ bill.status }} px-2 py-1 rounded-pill">{{ bill.get_status_display }}</span>
+                    </td>
+                    <td>
+                        <div class="d-flex gap-1 flex-wrap">
+                            <a href="{% url 'bill_detail' bill.pk %}" class="btn btn-sm btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>
+                            {% if profile.can_edit_bill or request.user.is_superuser %}
+                            <a href="{% url 'bill_edit' bill.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
+                            {% endif %}
+                            <a href="{% url 'bill_print' bill.pk %}" class="btn btn-sm btn-outline-dark" title="Print" target="_blank"><i class="bi bi-printer"></i></a>
+                            <a href="{% url 'bill_pdf' bill.pk %}" class="btn btn-sm btn-outline-danger" title="PDF"><i class="bi bi-file-pdf"></i></a>
+                            <a href="{% url 'bill_excel' bill.pk %}" class="btn btn-sm btn-outline-success" title="Excel"><i class="bi bi-file-excel"></i></a>
+                        </div>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="8" class="text-center text-muted py-5">
+                    <i class="bi bi-file-earmark-x display-6 d-block mb-2 opacity-25"></i>
+                    No bills found
+                </td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if bills.has_other_pages %}
+    <div class="card-footer bg-white border-0 d-flex justify-content-between">
+        <small class="text-muted">Page {{ bills.number }} of {{ bills.paginator.num_pages }}</small>
+        <nav><ul class="pagination pagination-sm mb-0">
+            {% if bills.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ bills.previous_page_number }}">«</a></li>{% endif %}
+            {% for num in bills.paginator.page_range %}
+            <li class="page-item {% if bills.number == num %}active{% endif %}"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+            {% endfor %}
+            {% if bills.has_next %}<li class="page-item"><a class="page-link" href="?page={{ bills.next_page_number }}">»</a></li>{% endif %}
+        </ul></nav>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

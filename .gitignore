@@ -1,0 +1,20 @@
+.env
+.env.*
+!.env.example
+
+__pycache__/
+*.py[cod]
+
+venv/
+venv*/
+.venv/
+
+.DS_Store
+Thumbs.db
+
+*.log
+
+# Django
+*.sqlite3
+staticfiles/
+media/

@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+{% block title %}{{ action|default:"Add" }} Client{% endblock %}
+{% block page_title %}{{ action|default:"Add" }} Client{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <a href="{% url 'client_list' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to Clients</a>
+</div>
+
+<div class="card form-card" style="max-width: 700px;">
+    <div class="card-header bg-white border-0 pt-3">
+        <h5 class="fw-bold mb-0"><i class="bi bi-person-plus me-2 text-primary"></i>{{ action|default:"Add" }} Client</h5>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <div class="row g-3">
+                <div class="col-md-6">
+                    <label class="form-label">Client Name <span class="text-danger">*</span></label>
+                    <input type="text" name="name" class="form-control" value="{{ client.name|default:'' }}" required>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Company</label>
+                    <input type="text" name="company" class="form-control" value="{{ client.company|default:'' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Email</label>
+                    <input type="email" name="email" class="form-control" value="{{ client.email|default:'' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Phone</label>
+                    <input type="text" name="phone" class="form-control" value="{{ client.phone|default:'' }}">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Address <span class="text-danger">*</span></label>
+                    <textarea name="address" class="form-control" rows="2" required>{{ client.address|default:'' }}</textarea>
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">City</label>
+                    <input type="text" name="city" class="form-control" value="{{ client.city|default:'' }}">
+                </div>
+                <div class="col-md-6">
+                    <label class="form-label">Country</label>
+                    <input type="text" name="country" class="form-control" value="{{ client.country|default:'Bangladesh' }}">
+                </div>
+                {% if action == "Edit" %}
+                <div class="col-md-6">
+                    <label class="form-label">Status</label>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" name="is_active" {% if client.is_active %}checked{% endif %}>
+                        <label class="form-check-label">Active</label>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+            <div class="d-flex gap-2 mt-4">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save Client</button>
+                <a href="{% url 'client_list' %}" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

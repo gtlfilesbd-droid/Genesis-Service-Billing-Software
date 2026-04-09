@@ -1,0 +1,77 @@
+{% extends 'base.html' %}
+{% block title %}My Profile{% endblock %}
+{% block page_title %}My Profile{% endblock %}
+
+{% block content %}
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card form-card text-center p-4">
+            <div class="mb-3">
+                {% if profile.profile_picture %}
+                <img src="{{ profile.profile_picture.url }}" class="rounded-circle" width="90" height="90" style="object-fit:cover;">
+                {% else %}
+                <div class="rounded-circle bg-primary d-inline-flex align-items-center justify-content-center" style="width:90px;height:90px;font-size:2rem;color:white;">
+                    {{ request.user.username|first|upper }}
+                </div>
+                {% endif %}
+            </div>
+            <h5 class="fw-bold">{{ request.user.get_full_name|default:request.user.username }}</h5>
+            <p class="text-muted small">{{ profile.department|default:"No Department" }}</p>
+            {% if request.user.is_superuser %}<span class="badge bg-warning text-dark">Super Admin</span>{% endif %}
+
+            <hr>
+            <div class="text-start">
+                <p class="small text-muted fw-semibold mb-2 text-uppercase">Permissions</p>
+                <div class="d-flex flex-column gap-1">
+                    {% for perm, label in perms_list %}
+                    <div class="d-flex justify-content-between small">
+                        <span class="text-muted">{{ label }}</span>
+                        <span>{% if perm %}<i class="bi bi-check-circle-fill text-success"></i>{% else %}<i class="bi bi-x-circle-fill text-danger"></i>{% endif %}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-lg-8">
+        <div class="card form-card">
+            <div class="card-header bg-white border-0 pt-3">
+                <h6 class="fw-bold mb-0"><i class="bi bi-person-gear me-2 text-primary"></i>Edit Profile</h6>
+            </div>
+            <div class="card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label class="form-label">First Name</label>
+                            <input type="text" name="first_name" class="form-control" value="{{ request.user.first_name }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Last Name</label>
+                            <input type="text" name="last_name" class="form-control" value="{{ request.user.last_name }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Email</label>
+                            <input type="email" name="email" class="form-control" value="{{ request.user.email }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Phone</label>
+                            <input type="text" name="phone" class="form-control" value="{{ profile.phone|default:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Department</label>
+                            <input type="text" name="department" class="form-control" value="{{ profile.department|default:'' }}">
+                        </div>
+                        <div class="col-md-6">
+                            <label class="form-label">Profile Picture</label>
+                            <input type="file" name="profile_picture" class="form-control" accept="image/*">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary mt-4"><i class="bi bi-check-lg me-1"></i>Save Changes</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,431 @@
+{% extends 'base.html' %}
+{% block title %}{% if action == 'Edit' %}Edit{% else %}New{% endif %} Bill{% endblock %}
+{% block page_title %}{% if action == 'Edit' %}Edit{% else %}New{% endif %} Bill{% endblock %}
+
+{% block extra_css %}
+<style>
+.section-card { border:none; border-radius:12px; box-shadow:0 2px 10px rgba(0,0,0,0.07); margin-bottom:20px; overflow:hidden; }
+.section-header { background:linear-gradient(135deg,#1565C0,#1976D2); color:#fff; padding:12px 20px; font-weight:600; font-size:0.88rem; letter-spacing:0.4px; }
+.section-header i { margin-right:8px; opacity:0.85; }
+.section-body { padding:20px; background:#fff; }
+.form-label { font-size:0.8rem; font-weight:600; color:#546e7a; margin-bottom:4px; text-transform:uppercase; letter-spacing:0.4px; }
+.form-control,.form-select { border-radius:8px; font-size:0.9rem; border:1.5px solid #e0e0e0; }
+.form-control:focus,.form-select:focus { border-color:#1565C0; box-shadow:0 0 0 3px rgba(21,101,192,0.1); }
+.req { color:#e53935; }
+
+/* Items table */
+#itemsTable thead th { background:#e3f2fd; color:#1565C0; font-size:0.77rem; text-transform:uppercase; letter-spacing:0.4px; padding:10px 10px; border:1px solid #bbdefb; white-space:nowrap; }
+#itemsTable tbody td { padding:7px 8px; border:1px solid #e9ecef; vertical-align:middle; }
+#itemsTable tbody tr:nth-child(even) { background:#fafbff; }
+.item-row textarea { min-height:56px; resize:vertical; font-size:0.875rem; }
+.del-btn { width:32px; height:32px; padding:0; border-radius:6px; }
+
+.add-row-btn { border:2px dashed #90caf9; color:#1565C0; background:#f0f7ff; border-radius:8px; padding:8px 18px; font-weight:600; font-size:0.875rem; transition:all 0.2s; }
+.add-row-btn:hover { background:#e3f2fd; border-color:#1565C0; color:#0d47a1; }
+
+.bank-grid { display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+@media(max-width:576px){ .bank-grid{grid-template-columns:1fr;} }
+
+.fin-box { background:#e8f5e9; border-radius:10px; padding:14px 16px; border:1.5px solid #a5d6a7; }
+.fin-row { display:flex; justify-content:space-between; padding:5px 0; border-bottom:1px dashed #c8e6c9; font-size:0.875rem; }
+.fin-row:last-child { border-bottom:none; padding-bottom:0; }
+.fin-lbl { color:#388e3c; font-weight:500; }
+.fin-val { font-weight:700; color:#1b5e20; }
+
+.sticky-panel { position:sticky; top:72px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{% url 'bill_list' %}" class="btn btn-sm btn-outline-secondary">
+        <i class="bi bi-arrow-left me-1"></i>Back to Bills
+    </a>
+    <h4 class="fw-bold mb-0 mt-2">
+        {% if action == 'Edit' %}Edit Bill — <span class="text-primary">#{{ bill.bill_number }}</span>
+        {% else %}Create New Bill{% endif %}
+    </h4>
+</div>
+
+<form method="post" id="billForm">
+{% csrf_token %}
+<div class="row g-0">
+<div class="col-lg-9 pe-lg-3">
+
+<!-- ① CLIENT -->
+<div class="section-card">
+    <div class="section-header"><i class="bi bi-person-circle"></i>① Client</div>
+    <div class="section-body">
+        <div class="row g-3">
+            <div class="col-md-7">
+                <label class="form-label">Select Client <span class="req">*</span></label>
+                <select name="client" id="clientSelect" class="form-select" required>
+                    <option value="">— Select Client —</option>
+                    {% for c in clients %}
+                    <option value="{{ c.pk }}"
+                        {% if bill and bill.client_id == c.pk %}selected{% endif %}
+                        {% if request.GET.client == c.pk|stringformat:"s" %}selected{% endif %}>
+                        {{ c.name }}{% if c.company %} — {{ c.company }}{% endif %}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-5">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    {% for val, label in status_choices %}
+                    <option value="{{ val }}"
+                        {% if bill and bill.status == val %}selected
+                        {% elif not bill and val == 'draft' %}selected{% endif %}>
+                        {{ label }}
+                    </option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ② ③ DATES -->
+<div class="section-card">
+    <div class="section-header"><i class="bi bi-calendar3"></i>② Invoice Date &nbsp;&amp;&nbsp; ③ PO Date</div>
+    <div class="section-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Invoice Date <span class="req">*</span></label>
+                <input type="date" name="invoice_date" class="form-control"
+                    value="{{ bill.invoice_date|default:today }}" required>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">PO Date</label>
+                <input type="date" name="po_date" class="form-control"
+                    value="{{ bill.po_date|default:'' }}">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ④ ⑤ PERIODS -->
+<div class="section-card">
+    <div class="section-header"><i class="bi bi-clock-history"></i>④ Bill Period &nbsp;&amp;&nbsp; ⑤ Service Period</div>
+    <div class="section-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Bill Period</label>
+                <input type="text" name="bill_period" class="form-control"
+                    placeholder="e.g. January 2025"
+                    value="{{ bill.bill_period|default:'' }}">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Service Period</label>
+                <input type="text" name="service_period" class="form-control"
+                    placeholder="e.g. Jan 2025 – Dec 2025"
+                    value="{{ bill.service_period|default:'' }}">
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ⑥ DESCRIPTION ITEMS -->
+<div class="section-card">
+    <div class="section-header"><i class="bi bi-list-ul"></i>⑥ Description — Service Items (with Qty, Unit, Price)</div>
+    <div class="section-body p-0">
+        <div class="table-responsive">
+            <table class="table mb-0" id="itemsTable">
+                <thead>
+                    <tr>
+                        <th style="min-width:280px">Description</th>
+                        <th style="min-width:85px">Qty</th>
+                        <th style="min-width:110px">Unit</th>
+                        <th style="min-width:140px">Price (BDT)</th>
+                        <th style="min-width:140px">Amount (BDT)</th>
+                        <th style="width:42px"></th>
+                    </tr>
+                </thead>
+                <tbody id="itemRows">
+                {% if bill and bill.items.exists %}
+                    {% for item in bill.items.all %}
+                    <tr class="item-row">
+                        <td><textarea name="item_description[]" class="form-control form-control-sm"
+                            placeholder="Describe the service…" required>{{ item.description }}</textarea></td>
+                        <td><input type="number" name="item_quantity[]" class="form-control form-control-sm qty-in"
+                            value="{{ item.quantity }}" step="0.01" min="0.01"></td>
+                        <td><input type="text" name="item_unit[]" class="form-control form-control-sm"
+                            value="{{ item.unit|default:'' }}" placeholder="month / pcs…"></td>
+                        <td><input type="number" name="item_price[]" class="form-control form-control-sm price-in"
+                            value="{{ item.unit_price }}" step="0.01" min="0"></td>
+                        <td><input type="number" class="form-control form-control-sm amt-out bg-light"
+                            value="{{ item.amount }}" readonly tabindex="-1"></td>
+                        <td><button type="button" class="btn btn-outline-danger del-btn" onclick="removeRow(this)">
+                            <i class="bi bi-trash3" style="font-size:0.75rem"></i></button></td>
+                    </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr class="item-row">
+                        <td><textarea name="item_description[]" class="form-control form-control-sm"
+                            placeholder="Describe the service…" required></textarea></td>
+                        <td><input type="number" name="item_quantity[]" class="form-control form-control-sm qty-in" value="1" step="0.01" min="0.01"></td>
+                        <td><input type="text" name="item_unit[]" class="form-control form-control-sm" placeholder="month / pcs…"></td>
+                        <td><input type="number" name="item_price[]" class="form-control form-control-sm price-in" step="0.01" min="0" placeholder="0.00"></td>
+                        <td><input type="number" class="form-control form-control-sm amt-out bg-light" value="0.00" readonly tabindex="-1"></td>
+                        <td><button type="button" class="btn btn-outline-danger del-btn" onclick="removeRow(this)">
+                            <i class="bi bi-trash3" style="font-size:0.75rem"></i></button></td>
+                    </tr>
+                {% endif %}
+                </tbody>
+            </table>
+        </div>
+        <div class="px-3 py-3 d-flex justify-content-between align-items-center">
+            <button type="button" class="btn add-row-btn" onclick="addRow()">
+                <i class="bi bi-plus-circle me-2"></i>Add More Item
+            </button>
+            <div class="text-end">
+                <span class="text-muted small me-2">Items Subtotal:</span>
+                <strong class="text-primary fs-5" id="subtotalLive">৳0.00</strong>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ⑦–⑩ FINANCIAL -->
+<div class="section-card">
+    <div class="section-header"><i class="bi bi-calculator-fill"></i>⑦–⑩ Financial Details</div>
+    <div class="section-body">
+        <div class="row g-3">
+            <div class="col-sm-6">
+                <label class="form-label">⑦ Project Value Yearly (BDT)</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light">৳</span>
+                    <input type="number" name="project_value_yearly" id="pvyIn" class="form-control"
+                        step="0.01" min="0" placeholder="0.00"
+                        value="{{ bill.project_value_yearly|default:'' }}">
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label">⑧ Project Base Value (BDT)</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light">৳</span>
+                    <input type="number" name="project_base_value" id="pbvIn" class="form-control"
+                        step="0.01" min="0" placeholder="0.00"
+                        value="{{ bill.project_base_value|default:'' }}">
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label">⑨ Excluding VAT & AIT (BDT)</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-light">৳</span>
+                    <input type="number" name="excluding_vat_ait" id="evaIn" class="form-control"
+                        step="0.01" min="0" placeholder="0.00"
+                        value="{{ bill.excluding_vat_ait|default:'' }}">
+                </div>
+            </div>
+            <div class="col-sm-6">
+                <label class="form-label">⑩ Total In BDT</label>
+                <div class="input-group">
+                    <span class="input-group-text bg-success text-white">৳</span>
+                    <input type="number" name="total_in_bdt" id="tibIn" class="form-control fw-bold"
+                        step="0.01" min="0" placeholder="0.00"
+                        value="{{ bill.total_in_bdt|default:'' }}">
+                </div>
+                <div class="form-text">Final payable amount</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ⑪ REMARK -->
+<div class="section-card">
+    <div class="section-header"><i class="bi bi-chat-left-text"></i>⑪ Remark</div>
+    <div class="section-body">
+        <textarea name="remark" class="form-control" rows="3"
+            placeholder="Additional notes or remarks…">{{ bill.remark|default:'' }}</textarea>
+    </div>
+</div>
+
+<!-- ⑫ BANK INFORMATION -->
+<div class="section-card">
+    <div class="section-header"><i class="bi bi-bank2"></i>⑫ Bank Information</div>
+    <div class="section-body">
+        <div class="row g-3">
+            <div class="col-md-6">
+                <label class="form-label">Bank Name</label>
+                <input type="text" name="bank_name" class="form-control"
+                    placeholder="e.g. Dutch-Bangla Bank Limited"
+                    value="{{ bill.bank_name|default:'' }}">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Beneficiary</label>
+                <input type="text" name="beneficiary" class="form-control"
+                    placeholder="Account holder / Company name"
+                    value="{{ bill.beneficiary|default:'' }}">
+            </div>
+
+            <!-- Bank Address -->
+            <div class="col-12">
+                <label class="form-label">Bank Address</label>
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <input type="text" name="bank_branch" class="form-control"
+                            placeholder="Branch" value="{{ bill.bank_branch|default:'' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" name="bank_address_line1" class="form-control"
+                            placeholder="Address Line 1" value="{{ bill.bank_address_line1|default:'' }}">
+                    </div>
+                    <div class="col-md-4">
+                        <input type="text" name="bank_address_line2" class="form-control"
+                            placeholder="Address Line 2" value="{{ bill.bank_address_line2|default:'' }}">
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-6 col-lg-4">
+                <label class="form-label">Account Number</label>
+                <input type="text" name="account_number" class="form-control"
+                    placeholder="e.g. 1234567890"
+                    value="{{ bill.account_number|default:'' }}">
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <label class="form-label">Swift Code</label>
+                <input type="text" name="swift_code" class="form-control"
+                    placeholder="e.g. DBBLBDDH"
+                    value="{{ bill.swift_code|default:'' }}">
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <label class="form-label">Branch Code (Routing)</label>
+                <input type="text" name="branch_routing_code" class="form-control"
+                    placeholder="e.g. 090261239"
+                    value="{{ bill.branch_routing_code|default:'' }}">
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <label class="form-label">BIN</label>
+                <input type="text" name="bin_number" class="form-control"
+                    placeholder="Business Identification No."
+                    value="{{ bill.bin_number|default:'' }}">
+            </div>
+            <div class="col-md-6 col-lg-4">
+                <label class="form-label">TIN</label>
+                <input type="text" name="tin_number" class="form-control"
+                    placeholder="Tax Identification No."
+                    value="{{ bill.tin_number|default:'' }}">
+            </div>
+        </div>
+    </div>
+</div>
+
+</div><!-- /col-lg-9 -->
+
+<!-- STICKY SIDEBAR -->
+<div class="col-lg-3">
+    <div class="sticky-panel">
+        <div class="section-card">
+            <div class="section-header"><i class="bi bi-receipt-cutoff"></i>Bill Summary</div>
+            <div class="section-body">
+                <div class="fin-box mb-3">
+                    <div class="fin-row">
+                        <span class="fin-lbl">Items Subtotal</span>
+                        <span class="fin-val" id="sideSubtotal">৳0.00</span>
+                    </div>
+                    <div class="fin-row">
+                        <span class="fin-lbl">Excl. VAT & AIT</span>
+                        <span class="fin-val" id="sideEva">৳—</span>
+                    </div>
+                    <div class="fin-row" style="margin-top:4px; padding-top:8px; border-top:2px solid #81c784; border-bottom:none;">
+                        <span class="fin-lbl" style="font-size:0.95rem; font-weight:700; color:#1b5e20;">Total BDT</span>
+                        <span class="fin-val" style="font-size:1.05rem;" id="sideTib">৳0.00</span>
+                    </div>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button type="submit" class="btn btn-primary btn-lg fw-semibold">
+                        <i class="bi bi-check-circle-fill me-2"></i>
+                        {% if action == 'Edit' %}Update Bill{% else %}Create Bill{% endif %}
+                    </button>
+                    <a href="{% url 'bill_list' %}" class="btn btn-outline-secondary">
+                        <i class="bi bi-x-lg me-1"></i>Cancel
+                    </a>
+                </div>
+
+                {% if bill %}
+                <hr class="my-3">
+                <div class="text-center small text-muted">
+                    <div class="fw-semibold text-dark">#{{ bill.bill_number }}</div>
+                    <div>Created {{ bill.created_at|date:"d M Y" }}</div>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+</div>
+
+</div><!-- /row -->
+</form>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// ─── Row management ────────────────────────────────────────────
+function addRow() {
+    const tbody = document.getElementById('itemRows');
+    const tr = document.createElement('tr');
+    tr.className = 'item-row';
+    tr.innerHTML = `
+        <td><textarea name="item_description[]" class="form-control form-control-sm"
+            placeholder="Describe the service…" required></textarea></td>
+        <td><input type="number" name="item_quantity[]" class="form-control form-control-sm qty-in" value="1" step="0.01" min="0.01"></td>
+        <td><input type="text" name="item_unit[]" class="form-control form-control-sm" placeholder="month / pcs…"></td>
+        <td><input type="number" name="item_price[]" class="form-control form-control-sm price-in" step="0.01" min="0" placeholder="0.00"></td>
+        <td><input type="number" class="form-control form-control-sm amt-out bg-light" value="0.00" readonly tabindex="-1"></td>
+        <td><button type="button" class="btn btn-outline-danger del-btn" onclick="removeRow(this)">
+            <i class="bi bi-trash3" style="font-size:0.75rem"></i></button></td>
+    `;
+    tbody.appendChild(tr);
+    attachListeners(tr);
+    tr.querySelector('textarea').focus();
+    recalc();
+}
+
+function removeRow(btn) {
+    if (document.querySelectorAll('#itemRows .item-row').length <= 1) {
+        alert('At least one item is required.');
+        return;
+    }
+    btn.closest('tr').remove();
+    recalc();
+}
+
+// ─── Calculation ───────────────────────────────────────────────
+function rowAmt(tr) {
+    const q = parseFloat(tr.querySelector('.qty-in').value) || 0;
+    const p = parseFloat(tr.querySelector('.price-in').value) || 0;
+    const a = q * p;
+    tr.querySelector('.amt-out').value = a.toFixed(2);
+    return a;
+}
+
+function recalc() {
+    let subtotal = 0;
+    document.querySelectorAll('#itemRows .item-row').forEach(tr => { subtotal += rowAmt(tr); });
+    const eva = parseFloat(document.getElementById('evaIn')?.value) || 0;
+    const tib = parseFloat(document.getElementById('tibIn')?.value) || 0;
+    const fmt = v => '৳' + v.toLocaleString('en-IN', {minimumFractionDigits:2});
+    document.getElementById('subtotalLive').textContent = fmt(subtotal);
+    document.getElementById('sideSubtotal').textContent = fmt(subtotal);
+    document.getElementById('sideEva').textContent = eva ? fmt(eva) : '৳—';
+    document.getElementById('sideTib').textContent = fmt(tib || subtotal);
+}
+
+function attachListeners(tr) {
+    tr.querySelectorAll('.qty-in,.price-in').forEach(el => el.addEventListener('input', recalc));
+}
+
+document.querySelectorAll('#itemRows .item-row').forEach(attachListeners);
+['evaIn','tibIn'].forEach(id => { const el=document.getElementById(id); if(el) el.addEventListener('input',recalc); });
+
+// Auto-select from URL param
+const cp = new URLSearchParams(window.location.search).get('client');
+if (cp) { const s=document.getElementById('clientSelect'); if(s) s.value=cp; }
+
+recalc();
+</script>
+{% endblock %}

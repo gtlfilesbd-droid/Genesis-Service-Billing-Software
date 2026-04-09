@@ -1,0 +1,136 @@
+{% extends 'base.html' %}
+{% block title %}{% if agreement %}Edit{% else %}Add{% endif %} Agreement{% endblock %}
+{% block page_title %}{% if agreement %}Edit{% else %}Add{% endif %} Agreement{% endblock %}
+
+{% block content %}
+<div class="mb-3">
+    <a href="{% url 'client_detail' client.pk %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back to {{ client.name }}</a>
+</div>
+
+<div class="card form-card">
+    <div class="card-header bg-white border-0 pt-3">
+        <h5 class="fw-bold mb-0">
+            <i class="bi bi-file-earmark-ruled me-2 text-primary"></i>
+            {% if agreement %}Edit{% else %}New{% endif %} Agreement for <span class="text-primary">{{ client.name }}</span>
+        </h5>
+    </div>
+    <div class="card-body">
+        <form method="post">
+            {% csrf_token %}
+            <!-- Agreement Details -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-6">
+                    <label class="form-label">Agreement Title <span class="text-danger">*</span></label>
+                    <input type="text" name="title" class="form-control" value="{{ agreement.title|default:'' }}" required placeholder="e.g. Annual Service Contract 2025">
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">Start Date <span class="text-danger">*</span></label>
+                    <input type="date" name="start_date" class="form-control" value="{{ agreement.start_date|default:'' }}" required>
+                </div>
+                <div class="col-md-3">
+                    <label class="form-label">End Date</label>
+                    <input type="date" name="end_date" class="form-control" value="{{ agreement.end_date|default:'' }}">
+                </div>
+                <div class="col-12">
+                    <label class="form-label">Notes</label>
+                    <textarea name="notes" class="form-control" rows="2" placeholder="Optional notes...">{{ agreement.notes|default:'' }}</textarea>
+                </div>
+                {% if agreement %}
+                <div class="col-md-3">
+                    <label class="form-label">Status</label>
+                    <div class="form-check form-switch mt-2">
+                        <input class="form-check-input" type="checkbox" name="is_active" {% if agreement.is_active %}checked{% endif %}>
+                        <label class="form-check-label">Active</label>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
+
+            <!-- Services -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h6 class="fw-bold mb-0"><i class="bi bi-list-check me-2 text-primary"></i>Services</h6>
+                <button type="button" class="btn btn-sm btn-outline-primary" onclick="addServiceRow()">
+                    <i class="bi bi-plus-lg me-1"></i>Add Service
+                </button>
+            </div>
+
+            <div class="table-responsive">
+                <table class="table table-bordered" id="servicesTable">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Service Name <span class="text-danger">*</span></th>
+                            <th width="160">Type</th>
+                            <th width="140">Charge (BDT)</th>
+                            <th>Description</th>
+                            <th width="50"></th>
+                        </tr>
+                    </thead>
+                    <tbody id="serviceRows">
+                    {% if agreement %}
+                        {% for service in agreement.services.all %}
+                        <tr>
+                            <td><input type="text" name="service_name[]" class="form-control form-control-sm" value="{{ service.name }}" required></td>
+                            <td>
+                                <select name="service_type[]" class="form-select form-select-sm">
+                                    {% for val, label in service_types %}
+                                    <option value="{{ val }}" {% if service.service_type == val %}selected{% endif %}>{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </td>
+                            <td><input type="number" name="service_charge[]" class="form-control form-control-sm" step="0.01" value="{{ service.charge }}" required></td>
+                            <td><input type="text" name="service_description[]" class="form-control form-control-sm" value="{{ service.description|default:'' }}"></td>
+                            <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash3"></i></button></td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td><input type="text" name="service_name[]" class="form-control form-control-sm" placeholder="e.g. Website Hosting" required></td>
+                            <td>
+                                <select name="service_type[]" class="form-select form-select-sm">
+                                    {% for val, label in service_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}
+                                </select>
+                            </td>
+                            <td><input type="number" name="service_charge[]" class="form-control form-control-sm" step="0.01" placeholder="0.00" required></td>
+                            <td><input type="text" name="service_description[]" class="form-control form-control-sm" placeholder="Brief description..."></td>
+                            <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash3"></i></button></td>
+                        </tr>
+                    {% endif %}
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="d-flex gap-2 mt-4">
+                <button type="submit" class="btn btn-primary"><i class="bi bi-check-lg me-1"></i>Save Agreement</button>
+                <a href="{% url 'client_detail' client.pk %}" class="btn btn-outline-secondary">Cancel</a>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Service type options for JS -->
+<script>
+const serviceTypeOptions = `{% for val, label in service_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}`;
+
+function addServiceRow() {
+    const tbody = document.getElementById('serviceRows');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input type="text" name="service_name[]" class="form-control form-control-sm" placeholder="Service name" required></td>
+        <td><select name="service_type[]" class="form-select form-select-sm">${serviceTypeOptions}</select></td>
+        <td><input type="number" name="service_charge[]" class="form-control form-control-sm" step="0.01" placeholder="0.00" required></td>
+        <td><input type="text" name="service_description[]" class="form-control form-control-sm" placeholder="Description..."></td>
+        <td><button type="button" class="btn btn-sm btn-outline-danger" onclick="removeRow(this)"><i class="bi bi-trash3"></i></button></td>
+    `;
+    tbody.appendChild(tr);
+}
+
+function removeRow(btn) {
+    const rows = document.getElementById('serviceRows').querySelectorAll('tr');
+    if (rows.length > 1) {
+        btn.closest('tr').remove();
+    } else {
+        alert('At least one service is required.');
+    }
+}
+</script>
+{% endblock %}
