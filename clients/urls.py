@@ -8,4 +8,5 @@ urlpatterns = [
     path('<int:pk>/edit/', views.client_edit, name='client_edit'),
     path('<int:client_pk>/agreement/add/', views.agreement_add, name='agreement_add'),
     path('agreement/<int:pk>/edit/', views.agreement_edit, name='agreement_edit'),
+    path('agreement/<int:pk>/delete/', views.agreement_delete, name='agreement_delete'),
 ]

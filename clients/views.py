@@ -102,6 +102,7 @@ def agreement_add(request, client_pk):
             start_date=request.POST.get('start_date'),
             end_date=request.POST.get('end_date') or None,
             notes=request.POST.get('notes'),
+            attachment=request.FILES.get('attachment'),
             created_by=request.user
         )
         agreement.save()
@@ -148,6 +149,8 @@ def agreement_edit(request, pk):
         agreement.end_date = request.POST.get('end_date') or None
         agreement.notes = request.POST.get('notes')
         agreement.is_active = request.POST.get('is_active') == 'on'
+        if request.FILES.get('attachment'):
+            agreement.attachment = request.FILES.get('attachment')
         agreement.save()
 
         # Update services
@@ -176,3 +179,23 @@ def agreement_edit(request, pk):
         'profile': profile,
         'service_types': Service._meta.get_field('service_type').choices
     })
+
+
+@login_required
+def agreement_delete(request, pk):
+    profile = get_user_profile(request.user)
+    agreement = get_object_or_404(Agreement, pk=pk)
+    client = agreement.client
+
+    if not profile.can_edit_client and not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to delete agreements.')
+        return redirect('client_detail', pk=client.pk)
+
+    if request.method != 'POST':
+        messages.error(request, 'Invalid request method.')
+        return redirect('client_detail', pk=client.pk)
+
+    title = agreement.title
+    agreement.delete()
+    messages.success(request, f'Agreement "{title}" deleted successfully.')
+    return redirect('client_detail', pk=client.pk)

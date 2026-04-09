@@ -46,6 +46,7 @@ class Agreement(models.Model):
     end_date = models.DateField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
     notes = models.TextField(blank=True, null=True)
+    attachment = models.FileField(upload_to='agreements/', blank=True, null=True)
 
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     created_at = models.DateTimeField(auto_now_add=True)
