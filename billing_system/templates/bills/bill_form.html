@@ -102,6 +102,7 @@
 
 <form method="post" id="billForm">
 {% csrf_token %}
+{% if action == 'Edit' %}<input type="hidden" name="bill_form_is_edit" value="1">{% endif %}
 <div class="row g-0">
 <div class="col-lg-9 pe-lg-3">
 
@@ -135,7 +136,9 @@
 
 <!-- Dates + Invoice number -->
 <div class="section-card">
-    <div class="section-header"><i class="bi bi-calendar3"></i>Invoice Date &nbsp;&amp;&nbsp; PO Date &nbsp;&amp;&nbsp; Invoice No. <small class="opacity-75">(auto)</small></div>
+    <div class="section-header"><i class="bi bi-calendar3"></i>Invoice Date &nbsp;&amp;&nbsp; PO Date &nbsp;&amp;&nbsp; Invoice No.
+        {% if action == 'Edit' %}<small class="opacity-75">(editable)</small>{% else %}<small class="opacity-75">(auto)</small>{% endif %}
+    </div>
     <div class="section-body">
         <div class="row g-3">
             <div class="col-md-6">
@@ -145,34 +148,64 @@
             </div>
             <div class="col-md-6">
                 <label class="form-label">PO Date <span class="req">*</span></label>
+                {% if action == 'Edit' %}
+                <input type="date" name="po_date" id="poDateIn" class="form-control"
+                    value="{% if bill and bill.po_date %}{{ bill.po_date|date:'Y-m-d' }}{% endif %}">
+                {% else %}
                 <input type="date" name="po_date" id="poDateIn" class="form-control" readonly required
                     value="{% if bill and bill.po_date %}{{ bill.po_date|date:'Y-m-d' }}{% endif %}">
+                {% endif %}
             </div>
             <div class="col-12">
-                <label class="form-label">Invoice Number <span class="req">*</span> <span class="text-muted fw-normal text-lowercase" style="font-size:0.72rem;">(auto)</span></label>
+                <label class="form-label">Invoice Number <span class="req">*</span>
+                    {% if action == 'Edit' %}
+                    <span class="text-muted fw-normal text-lowercase" style="font-size:0.72rem;">(change if needed; must stay unique)</span>
+                    {% else %}
+                    <span class="text-muted fw-normal text-lowercase" style="font-size:0.72rem;">(auto)</span>
+                    {% endif %}
+                </label>
+                {% if action == 'Edit' %}
+                <input type="text" name="invoice_number" class="form-control fw-semibold" id="invoiceNumberField" required maxlength="150"
+                    value="{{ bill.invoice_number|default:bill.bill_number }}"
+                    placeholder="Invoice number"
+                    autocomplete="off">
+                {% else %}
                 <input type="text" class="form-control bg-light fw-semibold" id="invoiceNumberField" readonly
                     value="{% if bill and bill.invoice_number %}{{ bill.invoice_number }}{% endif %}"
                     placeholder="Select client &amp; agreement — number appears here automatically"
                     autocomplete="off">
+                {% endif %}
             </div>
         </div>
     </div>
 </div>
 
-<!-- Bill period (previous completed cycle vs invoice date; clipped to agreement) -->
+<!-- Bill period (auto on create; editable on edit) -->
 <div class="section-card">
-    <div class="section-header"><i class="bi bi-clock-history"></i>Bill Period <small class="opacity-75">(auto)</small></div>
+    <div class="section-header"><i class="bi bi-clock-history"></i>Bill Period
+        {% if action == 'Edit' %}<small class="opacity-75">(editable)</small>{% else %}<small class="opacity-75">(auto)</small>{% endif %}
+    </div>
     <div class="section-body">
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label">Bill From</label>
+                {% if action == 'Edit' %}
+                <input type="date" name="bill_period_from" id="billPeriodFromIn" class="form-control"
+                    value="{% if bill and bill.bill_period_from %}{{ bill.bill_period_from|date:'Y-m-d' }}{% endif %}">
+                {% else %}
                 <input type="date" id="billPeriodFromIn" class="form-control bg-light" readonly
                     value="{% if bill and bill.bill_period_from %}{{ bill.bill_period_from|date:'Y-m-d' }}{% endif %}">
+                {% endif %}
             </div>
             <div class="col-md-6">
                 <label class="form-label">Bill To</label>
+                {% if action == 'Edit' %}
+                <input type="date" name="bill_period_to" id="billPeriodToIn" class="form-control"
+                    value="{% if bill and bill.bill_period_to %}{{ bill.bill_period_to|date:'Y-m-d' }}{% endif %}">
+                {% else %}
                 <input type="date" id="billPeriodToIn" class="form-control bg-light" readonly
                     value="{% if bill and bill.bill_period_to %}{{ bill.bill_period_to|date:'Y-m-d' }}{% endif %}">
+                {% endif %}
             </div>
         </div>
     </div>
@@ -476,6 +509,7 @@ const BILLING_PREVIEW_INVOICE_URL = "{% url 'preview_invoice_number' %}";
 const BILLING_AGREEMENTS_URL_TEMPLATE = "{% url 'get_client_agreements' 0 %}".replace(/\/0\//, '/__CID__/');
 const BILLING_AGREEMENT_SERVICES_URL_TEMPLATE = "{% url 'get_agreement_services' 0 %}".replace(/\/0\//, '/__AID__/');
 const BILLING_PREVIEW_BILL_PERIOD_URL = "{% url 'preview_bill_period' %}";
+const BILL_FORM_IS_EDIT = {% if action == 'Edit' %}true{% else %}false{% endif %};
 
 (function initBillingBankProfileFill() {
     const el = document.getElementById('billing-banks-json');
@@ -662,6 +696,7 @@ if (cp) { const s=document.getElementById('clientSelect'); if(s) s.value=cp; }
 
 let _previewTimer;
 function refreshInvoicePreview() {
+    if (BILL_FORM_IS_EDIT) return;
     const field = document.getElementById('invoiceNumberField');
     if (!field) return;
     const client = document.getElementById('clientSelect')?.value;
@@ -737,6 +772,7 @@ async function loadAgreementsForClient(clientId) {
 }
 
 function clearBillPeriodFields() {
+    if (BILL_FORM_IS_EDIT) return;
     const f = document.getElementById('billPeriodFromIn');
     const t = document.getElementById('billPeriodToIn');
     if (f) f.value = '';
@@ -744,6 +780,7 @@ function clearBillPeriodFields() {
 }
 
 async function refreshBillPeriodPreview() {
+    if (BILL_FORM_IS_EDIT) return;
     const agreementId = document.getElementById('agreementSelect')?.value;
     const inv = document.getElementById('invoiceDateIn')?.value;
     const fromEl = document.getElementById('billPeriodFromIn');
@@ -769,6 +806,7 @@ async function refreshBillPeriodPreview() {
 }
 
 function syncPoDateFromAgreement() {
+    if (BILL_FORM_IS_EDIT) return;
     const po = document.getElementById('poDateIn');
     const sel = document.getElementById('agreementSelect');
     if (!po || !sel) return;
@@ -780,8 +818,10 @@ function syncPoDateFromAgreement() {
 document.getElementById('clientSelect')?.addEventListener('change', async (e) => {
     const sel = document.getElementById('agreementSelect');
     if (sel) sel.setAttribute('data-current', '');
-    const po = document.getElementById('poDateIn');
-    if (po) po.value = '';
+    if (!BILL_FORM_IS_EDIT) {
+        const po = document.getElementById('poDateIn');
+        if (po) po.value = '';
+    }
     clearBillPeriodFields();
     resetItemRowsToBlank();
     await loadAgreementsForClient(e.target.value);

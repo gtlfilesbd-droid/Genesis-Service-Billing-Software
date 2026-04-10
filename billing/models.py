@@ -222,9 +222,13 @@ class Bill(models.Model):
         if not self.bill_number:
             self.bill_number = self.generate_bill_number()
         update_fields = kwargs.get('update_fields')
-        # Full save only: invoice_number follows invoice_date / client / agreement (create & edit).
-        # Partial saves (e.g. subtotal only) skip this so invoice_number is not dropped from the UPDATE.
-        if update_fields is None and self.agreement_id and self.client_id:
+        # Full save only: auto invoice # from client/agreement/date (new bills). Edit form can skip via flag.
+        if (
+            update_fields is None
+            and self.agreement_id
+            and self.client_id
+            and not getattr(self, '_skip_auto_invoice_number', False)
+        ):
             from .invoice_number import build_invoice_number_base, allocate_invoice_number
 
             ag = Agreement.objects.select_related('agreement_with').get(pk=self.agreement_id)

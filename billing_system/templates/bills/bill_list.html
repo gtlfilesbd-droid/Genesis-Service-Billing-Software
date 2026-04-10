@@ -82,6 +82,13 @@
                             {% if profile.can_edit_bill or request.user.is_superuser %}
                             <a href="{% url 'bill_edit' bill.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
                             {% endif %}
+                            {% if profile.can_delete_bill or request.user.is_superuser %}
+                            <form method="post" action="{% url 'bill_delete' bill.pk %}" class="d-inline"
+                                  onsubmit="return confirm('Delete this bill permanently?');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash3"></i></button>
+                            </form>
+                            {% endif %}
                             <a href="{% url 'bill_print' bill.pk %}" class="btn btn-sm btn-outline-dark" title="Print" target="_blank"><i class="bi bi-printer"></i></a>
                             <a href="{% url 'bill_pdf' bill.pk %}" class="btn btn-sm btn-outline-danger" title="PDF"><i class="bi bi-file-pdf"></i></a>
                             <a href="{% url 'bill_excel' bill.pk %}" class="btn btn-sm btn-outline-success" title="Excel"><i class="bi bi-file-excel"></i></a>

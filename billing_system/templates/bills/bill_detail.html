@@ -24,6 +24,15 @@
         </a>
         {% endif %}
         {% endif %}
+        {% if profile.can_delete_bill or request.user.is_superuser %}
+        <form method="post" action="{% url 'bill_delete' bill.pk %}" class="d-inline"
+              onsubmit="return confirm('Delete this bill permanently? This cannot be undone.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">
+                <i class="bi bi-trash3 me-1"></i>Delete
+            </button>
+        </form>
+        {% endif %}
         <a href="{% url 'bill_print' bill.pk %}" target="_blank" class="btn btn-outline-dark">
             <i class="bi bi-printer me-1"></i>Print
         </a>

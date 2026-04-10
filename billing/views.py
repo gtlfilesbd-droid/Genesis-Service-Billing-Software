@@ -136,8 +136,21 @@ def _save_bill_from_post(request, bill):
         else:
             bill.invoice_date = date.today()
         inv = bill.invoice_date
+        is_edit = request.POST.get('bill_form_is_edit') == '1'
 
-        if bill.agreement_id:
+        if is_edit:
+            bill._skip_auto_invoice_number = True
+            inv_num = (request.POST.get('invoice_number') or '').strip()
+            if inv_num:
+                bill.invoice_number = inv_num
+            po_raw = request.POST.get('po_date')
+            bill.po_date = parse_date(po_raw) if po_raw else None
+            bf_raw = request.POST.get('bill_period_from')
+            bt_raw = request.POST.get('bill_period_to')
+            bill.bill_period_from = parse_date(bf_raw) if bf_raw else None
+            bill.bill_period_to = parse_date(bt_raw) if bt_raw else None
+            bill.bill_period = format_bill_period_line(bill.bill_period_from, bill.bill_period_to)
+        elif bill.agreement_id:
             try:
                 ag = Agreement.objects.prefetch_related(
                     Prefetch('services', queryset=Service.objects.filter(is_active=True).order_by('id'))
@@ -498,3 +511,19 @@ def mark_paid(request, pk):
     inv = bill.invoice_number or bill.bill_number
     messages.success(request, f'Invoice {inv} marked as paid.')
     return redirect('bill_detail', pk=pk)
+
+
+@login_required
+def bill_delete(request, pk):
+    profile = get_profile(request.user)
+    if not profile.can_delete_bill and not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to delete bills.')
+        return redirect('bill_detail', pk=pk)
+    bill = get_object_or_404(Bill, pk=pk)
+    if request.method != 'POST':
+        messages.error(request, 'Use the delete button to remove a bill.')
+        return redirect('bill_detail', pk=pk)
+    inv = bill.invoice_number or bill.bill_number
+    bill.delete()
+    messages.success(request, f'Invoice {inv} deleted.')
+    return redirect('bill_list')

@@ -10,6 +10,7 @@ urlpatterns = [
     path('<int:pk>/print/', views.bill_print, name='bill_print'),
     path('<int:pk>/excel/', views.bill_excel, name='bill_excel'),
     path('<int:pk>/mark-paid/', views.mark_paid, name='mark_paid'),
+    path('<int:pk>/delete/', views.bill_delete, name='bill_delete'),
     path('api/client/<int:client_id>/agreements/', views.get_client_agreements, name='get_client_agreements'),
     path('api/agreement/<int:agreement_id>/services/', views.get_agreement_services, name='get_agreement_services'),
     path('api/preview-invoice-number/', views.preview_invoice_number, name='preview_invoice_number'),
