@@ -33,6 +33,59 @@
 .fin-val { font-weight:700; color:#1b5e20; }
 
 .sticky-panel { position:sticky; top:72px; }
+
+/* Card + grid like Bank Information (reference layout) */
+.form-grid-card {
+    border: 1px solid #e0e0e0;
+    box-shadow: 0 1px 6px rgba(0,0,0,0.07);
+}
+.form-grid-card .section-header {
+    border-radius: 0;
+}
+.form-grid-card .section-body {
+    padding: 22px 20px 20px;
+}
+.form-grid-card .form-label {
+    font-size: 0.72rem;
+    letter-spacing: 0.08em;
+    color: #78909c;
+    margin-bottom: 6px;
+}
+.form-grid-card .field-hint {
+    font-size: 0.72rem;
+    color: #b0bec5;
+    margin: -4px 0 8px 0;
+    text-transform: none;
+    letter-spacing: 0.02em;
+    line-height: 1.3;
+}
+.form-grid-card .input-group-text {
+    border-color: #e0e0e0;
+    background: #fafafa;
+    color: #546e7a;
+    font-weight: 600;
+}
+.form-grid-card .form-control {
+    border-color: #e0e0e0;
+    min-height: 44px;
+    background: #fff !important;
+}
+.form-grid-card .form-control.bg-light {
+    background: #fafafa !important;
+}
+.form-grid-card .vat-total-addon {
+    background: linear-gradient(135deg,#1565C0,#1976D2) !important;
+    color: #fff !important;
+    border-color: #1565C0 !important;
+}
+.form-grid-card .form-grid-footer {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px solid #eceff1;
+    font-size: 0.8rem;
+    color: #78909c;
+    line-height: 1.45;
+}
 </style>
 {% endblock %}
 
@@ -186,113 +239,121 @@
     </div>
 </div>
 
-<!-- VAT & AIT (amounts follow Items Subtotal automatically) -->
-<div class="section-card">
+<!-- VAT & AIT — same card/grid style as Bank Information -->
+<div class="section-card form-grid-card">
     <div class="section-header"><i class="bi bi-percent"></i>VAT &amp; AIT Details</div>
     <div class="section-body">
-        <div class="row g-3">
-            <div class="col-sm-6">
-                <label class="form-label">Base Value (BDT) <small class="text-muted fw-normal">(Items Subtotal)</small></label>
+        <div class="row g-3 g-md-4">
+            <div class="col-md-6">
+                <label class="form-label" for="baseValueOut">Base Value (BDT)</label>
+                <p class="field-hint">From service items subtotal (automatic)</p>
                 <div class="input-group">
-                    <span class="input-group-text bg-light">৳</span>
+                    <span class="input-group-text">৳</span>
                     <input type="text" id="baseValueOut" class="form-control bg-light" readonly
+                        placeholder="0.00"
                         value="{% if bill %}{{ bill.project_base_value|floatformat:2 }}{% else %}0.00{% endif %}">
                 </div>
             </div>
-            <div class="col-sm-6">
-                <label class="form-label">VAT <small class="text-muted fw-normal">({{ tax_vat_percent|floatformat:2 }}% of base)</small></label>
+            <div class="col-md-6">
+                <label class="form-label" for="vatOut">VAT</label>
+                <p class="field-hint">{{ tax_vat_percent|floatformat:2 }}% of base (automatic)</p>
                 <div class="input-group">
-                    <span class="input-group-text bg-light">৳</span>
+                    <span class="input-group-text">৳</span>
                     <input type="text" id="vatOut" class="form-control bg-light" readonly
+                        placeholder="0.00"
                         value="{% if bill %}{{ bill.vat_amount|floatformat:2 }}{% else %}0.00{% endif %}">
                 </div>
             </div>
-            <div class="col-sm-6">
-                <label class="form-label">AIT <small class="text-muted fw-normal">({{ tax_ait_percent|floatformat:2 }}% of base)</small></label>
+            <div class="col-md-6">
+                <label class="form-label" for="aitOut">AIT</label>
+                <p class="field-hint">{{ tax_ait_percent|floatformat:2 }}% of base (automatic)</p>
                 <div class="input-group">
-                    <span class="input-group-text bg-light">৳</span>
+                    <span class="input-group-text">৳</span>
                     <input type="text" id="aitOut" class="form-control bg-light" readonly
+                        placeholder="0.00"
                         value="{% if bill %}{{ bill.ait_amount|floatformat:2 }}{% else %}0.00{% endif %}">
                 </div>
             </div>
-            <div class="col-sm-6">
-                <label class="form-label">Total VAT &amp; AIT In BDT</label>
+            <div class="col-md-6">
+                <label class="form-label" for="totalVatAitOut">Total VAT &amp; AIT In BDT</label>
+                <p class="field-hint">Sum of VAT and AIT</p>
                 <div class="input-group">
-                    <span class="input-group-text bg-primary text-white">৳</span>
+                    <span class="input-group-text vat-total-addon">৳</span>
                     <input type="text" id="totalVatAitOut" class="form-control bg-light fw-semibold" readonly
+                        placeholder="0.00"
                         value="{% if bill %}{{ bill.excluding_vat_ait|floatformat:2 }}{% else %}0.00{% endif %}">
                 </div>
             </div>
         </div>
+        <div class="form-grid-footer mb-0">
+            Grand total (Base + VAT + AIT) is shown in the summary panel.
+        </div>
     </div>
 </div>
 
-<!-- Bank information -->
-<div class="section-card">
+<!-- Bank profile -->
+<div class="section-card form-grid-card">
     <div class="section-header"><i class="bi bi-bank2"></i>Bank Information</div>
     <div class="section-body">
-        <div class="row g-3">
+        {{ billing_banks_payload|json_script:"billing-banks-json" }}
+        {% if not billing_banks %}
+        <p class="alert alert-warning small py-2 mb-3 mb-md-4">No bank profiles yet — add at least one under <strong>Billing banks</strong> in Admin.</p>
+        {% endif %}
+        <div class="row g-3 mb-3 mb-md-4">
+            <div class="col-md-8">
+                <label class="form-label" for="billingBankSelect">Bank profile</label>
+                <select name="billing_bank" id="billingBankSelect" class="form-select" {% if not billing_banks %}disabled{% endif %}>
+                    <option value="">— Select bank —</option>
+                    {% for b in billing_banks %}
+                    <option value="{{ b.pk }}" {% if initial_billing_bank_id == b.pk %}selected{% endif %}>{{ b.label }}{% if b.is_default %} (default){% endif %}</option>
+                    {% endfor %}
+                </select>
+            </div>
+        </div>
+        <div class="row g-3 g-md-4">
             <div class="col-md-6">
                 <label class="form-label">Bank Name</label>
-                <input type="text" name="bank_name" class="form-control"
-                    placeholder="e.g. Dutch-Bangla Bank Limited"
-                    value="{{ bill.bank_name|default:'' }}">
+                <input type="text" id="bankPreviewName" class="form-control bg-light" readonly value="" placeholder="—">
             </div>
             <div class="col-md-6">
                 <label class="form-label">Beneficiary</label>
-                <input type="text" name="beneficiary" class="form-control"
-                    placeholder="Account holder / Company name"
-                    value="{{ bill.beneficiary|default:'' }}">
+                <input type="text" id="bankPreviewBeneficiary" class="form-control bg-light" readonly value="" placeholder="—">
             </div>
-
-            <!-- Bank Address -->
             <div class="col-12">
                 <label class="form-label">Bank Address</label>
                 <div class="row g-2">
                     <div class="col-md-4">
-                        <input type="text" name="bank_branch" class="form-control"
-                            placeholder="Branch" value="{{ bill.bank_branch|default:'' }}">
+                        <input type="text" id="bankPreviewBranch" class="form-control bg-light" readonly value="" placeholder="Branch">
                     </div>
                     <div class="col-md-4">
-                        <input type="text" name="bank_address_line1" class="form-control"
-                            placeholder="Address Line 1" value="{{ bill.bank_address_line1|default:'' }}">
+                        <input type="text" id="bankPreviewAddr1" class="form-control bg-light" readonly value="" placeholder="Address Line 1">
                     </div>
                     <div class="col-md-4">
-                        <input type="text" name="bank_address_line2" class="form-control"
-                            placeholder="Address Line 2" value="{{ bill.bank_address_line2|default:'' }}">
+                        <input type="text" id="bankPreviewAddr2" class="form-control bg-light" readonly value="" placeholder="Address Line 2">
                     </div>
                 </div>
             </div>
-
-            <div class="col-md-6 col-lg-4">
+            <div class="col-md-4">
                 <label class="form-label">Account Number</label>
-                <input type="text" name="account_number" class="form-control"
-                    placeholder="e.g. 1234567890"
-                    value="{{ bill.account_number|default:'' }}">
+                <input type="text" id="bankPreviewAccount" class="form-control bg-light" readonly value="" placeholder="—">
             </div>
-            <div class="col-md-6 col-lg-4">
+            <div class="col-md-4">
                 <label class="form-label">Swift Code</label>
-                <input type="text" name="swift_code" class="form-control"
-                    placeholder="e.g. DBBLBDDH"
-                    value="{{ bill.swift_code|default:'' }}">
+                <input type="text" id="bankPreviewSwift" class="form-control bg-light" readonly value="" placeholder="—">
             </div>
-            <div class="col-md-6 col-lg-4">
+            <div class="col-md-4">
                 <label class="form-label">Branch Code (Routing)</label>
-                <input type="text" name="branch_routing_code" class="form-control"
-                    placeholder="e.g. 090261239"
-                    value="{{ bill.branch_routing_code|default:'' }}">
+                <input type="text" id="bankPreviewRouting" class="form-control bg-light" readonly value="" placeholder="—">
             </div>
-            <div class="col-md-6 col-lg-4">
+            <div class="col-md-6">
                 <label class="form-label">BIN</label>
-                <input type="text" name="bin_number" class="form-control"
-                    placeholder="Business Identification No."
-                    value="{{ bill.bin_number|default:'' }}">
+                <p class="field-hint">Business Identification No.</p>
+                <input type="text" id="bankPreviewBin" class="form-control bg-light" readonly value="" placeholder="—">
             </div>
-            <div class="col-md-6 col-lg-4">
+            <div class="col-md-6">
                 <label class="form-label">TIN</label>
-                <input type="text" name="tin_number" class="form-control"
-                    placeholder="Tax Identification No."
-                    value="{{ bill.tin_number|default:'' }}">
+                <p class="field-hint">Tax Identification No.</p>
+                <input type="text" id="bankPreviewTin" class="form-control bg-light" readonly value="" placeholder="—">
             </div>
         </div>
     </div>
@@ -377,6 +438,39 @@ const BILLING_AGREEMENT_SERVICES_URL_TEMPLATE = "{% url 'get_agreement_services'
 const BILLING_PREVIEW_BILL_PERIOD_URL = "{% url 'preview_bill_period' %}";
 const TAX_VAT_PERCENT = {{ tax_vat_percent }};
 const TAX_AIT_PERCENT = {{ tax_ait_percent }};
+
+(function initBillingBankPreview() {
+    const el = document.getElementById('billing-banks-json');
+    const sel = document.getElementById('billingBankSelect');
+    if (!el || !sel) return;
+    let banks = [];
+    try {
+        banks = JSON.parse(el.textContent);
+    } catch (e) { banks = []; }
+    const byId = {};
+    banks.forEach(b => { if (b && b.id != null) byId[String(b.id)] = b; });
+    const fields = {
+        bank_name: 'bankPreviewName',
+        beneficiary: 'bankPreviewBeneficiary',
+        bank_branch: 'bankPreviewBranch',
+        bank_address_line1: 'bankPreviewAddr1',
+        bank_address_line2: 'bankPreviewAddr2',
+        account_number: 'bankPreviewAccount',
+        swift_code: 'bankPreviewSwift',
+        branch_routing_code: 'bankPreviewRouting',
+        bin_number: 'bankPreviewBin',
+        tin_number: 'bankPreviewTin',
+    };
+    function apply(id) {
+        const row = id ? byId[String(id)] : null;
+        Object.keys(fields).forEach(k => {
+            const inp = document.getElementById(fields[k]);
+            if (inp) inp.value = row && row[k] != null ? String(row[k]) : '';
+        });
+    }
+    sel.addEventListener('change', () => apply(sel.value));
+    apply(sel.value || (sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].value));
+})();
 
 /** Create & Edit: invoice date = viewer's local "today" when the page opens (invoice # date segment follows). */
 function localDateYMD() {

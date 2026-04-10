@@ -58,6 +58,70 @@ class BillingTaxSettings(models.Model):
         return obj
 
 
+class BillingBank(models.Model):
+    """Multiple bank profiles; one can be marked default for new bills. Managed in Admin."""
+
+    class Meta:
+        ordering = ['-is_default', 'label']
+        verbose_name = 'Billing bank'
+        verbose_name_plural = 'Billing banks'
+
+    label = models.CharField(
+        max_length=120,
+        help_text='Short name shown in the bill form dropdown (e.g. DBBL Main).',
+    )
+    is_default = models.BooleanField(default=False, verbose_name='Default for new bills')
+    bank_name = models.CharField(max_length=255, blank=True, verbose_name='Bank Name')
+    beneficiary = models.CharField(max_length=255, blank=True, verbose_name='Beneficiary')
+    bank_branch = models.CharField(max_length=255, blank=True, verbose_name='Branch')
+    bank_address_line1 = models.CharField(max_length=255, blank=True, verbose_name='Address Line 1')
+    bank_address_line2 = models.CharField(max_length=255, blank=True, verbose_name='Address Line 2')
+    account_number = models.CharField(max_length=100, blank=True, verbose_name='Account Number')
+    swift_code = models.CharField(max_length=50, blank=True, verbose_name='Swift Code')
+    branch_routing_code = models.CharField(max_length=100, blank=True, verbose_name='Branch Code (Routing)')
+    bin_number = models.CharField(max_length=50, blank=True, verbose_name='BIN')
+    tin_number = models.CharField(max_length=50, blank=True, verbose_name='TIN')
+
+    def __str__(self):
+        d = ' (default)' if self.is_default else ''
+        return f'{self.label}{d}'
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.is_default:
+            BillingBank.objects.exclude(pk=self.pk).update(is_default=False)
+
+    def copy_to_bill(self, bill):
+        bill.bank_name = self.bank_name or ''
+        bill.beneficiary = self.beneficiary or ''
+        bill.bank_branch = self.bank_branch or ''
+        bill.bank_address_line1 = self.bank_address_line1 or ''
+        bill.bank_address_line2 = self.bank_address_line2 or ''
+        bill.account_number = self.account_number or ''
+        bill.swift_code = self.swift_code or ''
+        bill.branch_routing_code = self.branch_routing_code or ''
+        bill.bin_number = self.bin_number or ''
+        bill.tin_number = self.tin_number or ''
+
+    @classmethod
+    def get_default(cls):
+        """Only a profile explicitly marked default; no fallback to the first row."""
+        return cls.objects.filter(is_default=True).first()
+
+    @staticmethod
+    def clear_bill_bank_fields(bill):
+        bill.bank_name = ''
+        bill.beneficiary = ''
+        bill.bank_branch = ''
+        bill.bank_address_line1 = ''
+        bill.bank_address_line2 = ''
+        bill.account_number = ''
+        bill.swift_code = ''
+        bill.branch_routing_code = ''
+        bill.bin_number = ''
+        bill.tin_number = ''
+
+
 class Bill(models.Model):
     bill_number = models.CharField(max_length=50, unique=True, verbose_name='Bill Number')
     invoice_number = models.CharField(
@@ -114,6 +178,14 @@ class Bill(models.Model):
     branch_routing_code = models.CharField(max_length=100, blank=True, null=True, verbose_name='Branch Code (Routing)')
     bin_number = models.CharField(max_length=50, blank=True, null=True, verbose_name='BIN')
     tin_number = models.CharField(max_length=50, blank=True, null=True, verbose_name='TIN')
+    billing_bank = models.ForeignKey(
+        'BillingBank',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='bills',
+        verbose_name='Bank profile',
+    )
 
     # Status & meta
     status = models.CharField(max_length=20, choices=BILL_STATUS_CHOICES, default='draft')

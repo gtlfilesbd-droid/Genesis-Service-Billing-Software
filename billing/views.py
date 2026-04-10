@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.db import transaction
 from django.db.models import Prefetch
 
-from .models import Bill, BillItem, BillingTaxSettings
+from .models import Bill, BillItem, BillingBank, BillingTaxSettings
 from .invoice_number import build_invoice_number_base
 from .bill_period import compute_bill_period_window, format_bill_period_line
 from clients.models import Client, Agreement, Service
@@ -17,12 +17,57 @@ from datetime import date, timedelta
 from django.utils.dateparse import parse_date
 
 
-def _bill_form_tax_context():
+def _bill_form_extra_context(bill=None):
     s = BillingTaxSettings.get_solo()
+    banks = list(BillingBank.objects.all().order_by('-is_default', 'label'))
+    payload = [
+        {
+            'id': b.pk,
+            'label': b.label,
+            'bank_name': b.bank_name or '',
+            'beneficiary': b.beneficiary or '',
+            'bank_branch': b.bank_branch or '',
+            'bank_address_line1': b.bank_address_line1 or '',
+            'bank_address_line2': b.bank_address_line2 or '',
+            'account_number': b.account_number or '',
+            'swift_code': b.swift_code or '',
+            'branch_routing_code': b.branch_routing_code or '',
+            'bin_number': b.bin_number or '',
+            'tin_number': b.tin_number or '',
+        }
+        for b in banks
+    ]
+    initial = None
+    if bill and getattr(bill, 'billing_bank_id', None):
+        initial = bill.billing_bank_id
+    else:
+        for b in banks:
+            if b.is_default:
+                initial = b.pk
+                break
     return {
         'tax_vat_percent': float(s.vat_percent),
         'tax_ait_percent': float(s.ait_percent),
+        'billing_banks': banks,
+        'billing_banks_payload': payload,
+        'initial_billing_bank_id': initial,
     }
+
+
+def _apply_billing_bank_from_post(request, bill):
+    raw = request.POST.get('billing_bank')
+    bb = None
+    if raw is not None and str(raw).strip() != '':
+        bb = BillingBank.objects.filter(pk=raw).first()
+    elif raw is not None and str(raw).strip() == '':
+        bb = None
+    else:
+        bb = BillingBank.get_default()
+    bill.billing_bank = bb
+    if bb:
+        bb.copy_to_bill(bill)
+    else:
+        BillingBank.clear_bill_bank_fields(bill)
 
 
 def get_profile(user):
@@ -83,16 +128,7 @@ def _save_bill_from_post(request, bill):
         if 'project_value_yearly' in request.POST:
             bill.project_value_yearly = request.POST.get('project_value_yearly') or 0
         bill.remark = request.POST.get('remark', '')
-        bill.bank_name = request.POST.get('bank_name', '')
-        bill.beneficiary = request.POST.get('beneficiary', '')
-        bill.bank_branch = request.POST.get('bank_branch', '')
-        bill.bank_address_line1 = request.POST.get('bank_address_line1', '')
-        bill.bank_address_line2 = request.POST.get('bank_address_line2', '')
-        bill.account_number = request.POST.get('account_number', '')
-        bill.swift_code = request.POST.get('swift_code', '')
-        bill.branch_routing_code = request.POST.get('branch_routing_code', '')
-        bill.bin_number = request.POST.get('bin_number', '')
-        bill.tin_number = request.POST.get('tin_number', '')
+        _apply_billing_bank_from_post(request, bill)
         bill.status = request.POST.get('status', 'draft')
         if not bill.created_by_id:
             bill.created_by = request.user
@@ -198,7 +234,7 @@ def bill_create(request):
         'status_choices': Bill._meta.get_field('status').choices,
         'action': 'Create',
     }
-    ctx.update(_bill_form_tax_context())
+    ctx.update(_bill_form_extra_context())
     return render(request, 'bills/bill_form.html', ctx)
 
 
@@ -235,7 +271,7 @@ def bill_edit(request, pk):
                 'status_choices': Bill._meta.get_field('status').choices,
                 'action': 'Edit',
             }
-            ctx.update(_bill_form_tax_context())
+            ctx.update(_bill_form_extra_context(bill))
             return render(request, 'bills/bill_form.html', ctx)
         _save_bill_from_post(request, bill)
         inv = bill.invoice_number or bill.bill_number
@@ -247,7 +283,7 @@ def bill_edit(request, pk):
         'status_choices': Bill._meta.get_field('status').choices,
         'action': 'Edit',
     }
-    ctx.update(_bill_form_tax_context())
+    ctx.update(_bill_form_extra_context(bill))
     return render(request, 'bills/bill_form.html', ctx)
 
 
