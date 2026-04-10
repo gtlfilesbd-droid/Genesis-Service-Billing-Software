@@ -18,6 +18,25 @@ from decimal import Decimal, InvalidOperation
 from django.utils.dateparse import parse_date
 
 
+def _safe_excel_sheet_title(raw, prefix='Inv', max_len=31):
+    """openpyxl rejects sheet names containing : \\ / ? * [ ] and limits length to 31."""
+    s = str(raw or '').strip() or 'inv'
+    for c in r':\/?*[]':
+        s = s.replace(c, '-')
+    s = ' '.join(s.split())
+    title = f'{prefix}-{s}'.strip('-')[:max_len]
+    return title if title else 'Invoice'
+
+
+def _safe_download_filename(raw, max_len=150):
+    """Remove characters unsafe in Windows / browser download filenames."""
+    s = str(raw or 'invoice').strip() or 'invoice'
+    for c in r'<>:"/\|?*[]':
+        s = s.replace(c, '-')
+    s = ' '.join(s.split()).strip('-') or 'invoice'
+    return s[:max_len]
+
+
 def _parse_rate_percent(request, key, default):
     raw = request.POST.get(key)
     if raw is None or str(raw).strip() == '':
@@ -432,7 +451,7 @@ def bill_excel(request, pk):
         inv_disp = bill.invoice_number or bill.bill_number
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = f"Inv-{inv_disp}"[:31]
+        ws.title = _safe_excel_sheet_title(inv_disp)
         blue = PatternFill('solid', fgColor='1565C0')
         wf = Font(bold=True, color='FFFFFF')
         bf = Font(bold=True)
@@ -489,7 +508,7 @@ def bill_excel(request, pk):
         for col, w in zip('ABCDEF', [28, 40, 10, 14, 22, 22]):
             ws.column_dimensions[col].width = w
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        fname = (bill.invoice_number or bill.bill_number).replace('/', '-')
+        fname = _safe_download_filename(bill.invoice_number or bill.bill_number)
         response['Content-Disposition'] = f'attachment; filename="Invoice-{fname}.xlsx"'
         wb.save(response)
         return response
