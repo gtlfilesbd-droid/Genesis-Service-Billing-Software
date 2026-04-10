@@ -2,6 +2,33 @@ from django.db import models
 from django.contrib.auth.models import User
 
 
+class Company(models.Model):
+    """
+    Your organization's companies (billing entity profiles).
+    Managed only via Django admin — not exposed in the app sidebar or dashboard.
+    """
+    name = models.CharField(max_length=255, verbose_name='Company Name')
+    short_form = models.CharField(max_length=50, default='', verbose_name='Company Name Short Form')
+    email = models.EmailField(blank=True, null=True)
+    phone = models.CharField(max_length=20, blank=True, null=True)
+    address = models.TextField(verbose_name='Address')
+    city = models.CharField(max_length=100, blank=True, null=True)
+    country = models.CharField(max_length=100, default='Bangladesh')
+    is_active = models.BooleanField(default=True)
+
+    created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='companies_created')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Company'
+        verbose_name_plural = 'Companies'
+
+    def __str__(self):
+        return f"{self.name}" + (f" ({self.short_form})" if self.short_form else "")
+
+
 class Client(models.Model):
     name = models.CharField(max_length=255, verbose_name='Client Name')
     short_form = models.CharField(max_length=50, default='', verbose_name='Client Name Short Form')
@@ -42,6 +69,14 @@ SERVICE_TYPE_CHOICES = [
 
 class Agreement(models.Model):
     client = models.ForeignKey(Client, on_delete=models.CASCADE, related_name='agreements')
+    agreement_with = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name='agreements',
+        null=True,
+        blank=True,
+        verbose_name='Agreement With',
+    )
     title = models.CharField(max_length=255, verbose_name='Agreement Title')
     start_date = models.DateField()
     end_date = models.DateField(blank=True, null=True)

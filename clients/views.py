@@ -4,7 +4,7 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 import json
 from django.http import HttpResponse
-from .models import Client, Agreement, Service
+from .models import Client, Company, Agreement, Service
 from accounts.models import UserProfile
 
 
@@ -13,6 +13,19 @@ def get_user_profile(user):
         return user.profile
     except UserProfile.DoesNotExist:
         return UserProfile.objects.create(user=user)
+
+
+def _agreement_service_groups(agreement):
+    groups = []
+    for s in agreement.services.all():
+        names = [n.strip() for n in (s.name or '').splitlines() if n.strip()]
+        groups.append({
+            'names': names if names else [''],
+            'service_type': s.service_type,
+            'charge': s.charge,
+            'description': s.description or '',
+        })
+    return groups
 
 
 @login_required
@@ -57,7 +70,7 @@ def client_add(request):
 def client_detail(request, pk):
     client = get_object_or_404(Client, pk=pk)
     profile = get_user_profile(request.user)
-    agreements = client.agreements.prefetch_related('services').all()
+    agreements = client.agreements.select_related('agreement_with').prefetch_related('services').all()
     service_type_choices = dict(Service._meta.get_field('service_type').choices)
     # Each Service row may contain multiple names (one per line).
     for ag in agreements:
@@ -142,7 +155,10 @@ def agreement_sheet_excel(request, pk):
         messages.error(request, 'openpyxl not installed.')
         return redirect('client_list')
 
-    agreement = get_object_or_404(Agreement.objects.select_related('client').prefetch_related('services'), pk=pk)
+    agreement = get_object_or_404(
+        Agreement.objects.select_related('client', 'agreement_with').prefetch_related('services'),
+        pk=pk,
+    )
 
     months = Agreement._months_in_period(agreement.start_date, agreement.end_date) if agreement.end_date else 0
     years = Agreement._years_in_period(agreement.start_date, agreement.end_date) if agreement.end_date else 0
@@ -166,6 +182,13 @@ def agreement_sheet_excel(request, pk):
     ws.merge_cells('A2:G2')
     ws['A2'] = f"AMC Period: {agreement.start_date} — {agreement.end_date or 'Ongoing'}"
     ws['A2'].alignment = Alignment(horizontal='center')
+
+    if agreement.agreement_with:
+        aw = agreement.agreement_with
+        ws.merge_cells('A3:G3')
+        sf = (aw.short_form or '').strip()
+        ws['A3'] = f"Agreement with: {aw.name}" + (f" ({sf})" if sf else '')
+        ws['A3'].alignment = Alignment(horizontal='center')
 
     ws.append([])
 
@@ -289,9 +312,31 @@ def agreement_add(request, client_pk):
         return redirect('client_detail', pk=client_pk)
 
     client = get_object_or_404(Client, pk=client_pk)
+    companies = Company.objects.filter(is_active=True).order_by('name')
+
     if request.method == 'POST':
+        aw_id = request.POST.get('agreement_with')
+        if not aw_id:
+            messages.error(request, 'Please select Agreement With.')
+            return render(request, 'clients/agreement_form.html', {
+                'client': client,
+                'profile': profile,
+                'service_types': Service._meta.get_field('service_type').choices,
+                'companies': companies,
+            })
+        agreement_with = Company.objects.filter(pk=aw_id, is_active=True).first()
+        if not agreement_with:
+            messages.error(request, 'Invalid company selected for Agreement With.')
+            return render(request, 'clients/agreement_form.html', {
+                'client': client,
+                'profile': profile,
+                'service_types': Service._meta.get_field('service_type').choices,
+                'companies': companies,
+            })
+
         agreement = Agreement(
             client=client,
+            agreement_with=agreement_with,
             title=request.POST.get('title'),
             start_date=request.POST.get('start_date'),
             end_date=request.POST.get('end_date') or None,
@@ -345,6 +390,7 @@ def agreement_add(request, client_pk):
         'client': client,
         'profile': profile,
         'service_types': Service._meta.get_field('service_type').choices,
+        'companies': companies,
     })
 
 
@@ -353,12 +399,37 @@ def agreement_edit(request, pk):
     profile = get_user_profile(request.user)
     agreement = get_object_or_404(Agreement, pk=pk)
     client = agreement.client
+    companies = Company.objects.filter(is_active=True).order_by('name')
 
     if not profile.can_edit_client and not request.user.is_superuser:
         messages.error(request, 'You do not have permission to edit agreements.')
         return redirect('client_detail', pk=client.pk)
 
     if request.method == 'POST':
+        aw_id = request.POST.get('agreement_with')
+        if not aw_id:
+            messages.error(request, 'Please select Agreement With.')
+            return render(request, 'clients/agreement_form.html', {
+                'client': client,
+                'agreement': agreement,
+                'profile': profile,
+                'service_types': Service._meta.get_field('service_type').choices,
+                'service_groups': _agreement_service_groups(agreement),
+                'companies': companies,
+            })
+        agreement_with = Company.objects.filter(pk=aw_id, is_active=True).first()
+        if not agreement_with:
+            messages.error(request, 'Invalid company selected for Agreement With.')
+            return render(request, 'clients/agreement_form.html', {
+                'client': client,
+                'agreement': agreement,
+                'profile': profile,
+                'service_types': Service._meta.get_field('service_type').choices,
+                'service_groups': _agreement_service_groups(agreement),
+                'companies': companies,
+            })
+
+        agreement.agreement_with = agreement_with
         agreement.title = request.POST.get('title')
         agreement.start_date = request.POST.get('start_date')
         agreement.end_date = request.POST.get('end_date') or None
@@ -408,24 +479,13 @@ def agreement_edit(request, pk):
         messages.success(request, 'Agreement updated successfully.')
         return redirect('client_detail', pk=client.pk)
 
-    # Each Service row may contain multiple names (one per line)
-    service_groups = []
-    if agreement:
-        for s in agreement.services.all():
-            names = [n.strip() for n in (s.name or '').splitlines() if n.strip()]
-            service_groups.append({
-                'names': names if names else [''],
-                'service_type': s.service_type,
-                'charge': s.charge,
-                'description': s.description or '',
-            })
-
     return render(request, 'clients/agreement_form.html', {
         'client': client,
         'agreement': agreement,
         'profile': profile,
         'service_types': Service._meta.get_field('service_type').choices,
-        'service_groups': service_groups,
+        'service_groups': _agreement_service_groups(agreement),
+        'companies': companies,
     })
 
 

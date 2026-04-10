@@ -79,6 +79,9 @@
                 <div>
                     <h6 class="fw-bold mb-0">{{ agreement.title }}</h6>
                     <small class="text-muted">{{ agreement.start_date }} — {{ agreement.end_date|default:"Ongoing" }}</small>
+                    {% if agreement.agreement_with %}
+                    <small class="text-muted d-block mt-1">Agreement with: {{ agreement.agreement_with.name }} ({{ agreement.agreement_with.short_form }})</small>
+                    {% endif %}
                 </div>
                 <div class="d-flex gap-2 align-items-center">
                     <span class="badge {% if agreement.is_active %}badge-paid{% else %}badge-cancelled{% endif %} rounded-pill px-2">

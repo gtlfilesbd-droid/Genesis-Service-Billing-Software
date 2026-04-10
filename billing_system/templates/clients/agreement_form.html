@@ -23,6 +23,15 @@
                     <label class="form-label">Agreement Title <span class="text-danger">*</span></label>
                     <input type="text" name="title" class="form-control" value="{{ agreement.title|default:'' }}" required placeholder="e.g. Annual Service Contract 2025">
                 </div>
+                <div class="col-md-6">
+                    <label class="form-label">Agreement With <span class="text-danger">*</span></label>
+                    <select name="agreement_with" class="form-select" required>
+                        <option value="">— Select company —</option>
+                        {% for co in companies %}
+                        <option value="{{ co.pk }}" {% if agreement and agreement.agreement_with_id == co.pk %}selected{% endif %}>{{ co.name }} ({{ co.short_form }})</option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <div class="col-md-3">
                     <label class="form-label">Start Date <span class="text-danger">*</span></label>
                     <input type="date" name="start_date" class="form-control" value="{% if agreement and agreement.start_date %}{{ agreement.start_date|date:'Y-m-d' }}{% endif %}" required>
