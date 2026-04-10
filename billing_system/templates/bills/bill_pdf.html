@@ -44,15 +44,13 @@ body { font-family:'Arial',sans-serif; font-size:12.5px; color:#222; background:
 .items-tbl th:nth-child(3), .items-tbl td:nth-child(3) { text-align:center; }
 .items-tbl th:nth-child(4), .items-tbl td:nth-child(4) { text-align:center; }
 .items-tbl th:nth-child(5), .items-tbl td:nth-child(5) { text-align:right; }
-.items-tbl tbody tr { border-bottom:1px solid #eee; }
-.items-tbl tbody tr:nth-child(even) { background:#f8f9ff; }
-.items-tbl td { padding:9px 10px; }
+.items-tbl tbody tr { border-bottom:1px solid #222; }
+.items-tbl td { padding:8px 10px; border:1px solid #222; vertical-align:middle; }
+.items-tbl th { border:1px solid #222; }
 .items-tbl tfoot tr { background:#f0f4ff; }
-.items-tbl tfoot td { padding:8px 10px; font-weight:600; }
-.items-tbl td.desc-cell { vertical-align:middle; }
-.items-tbl td.mid-cell { vertical-align:middle; }
-.desc-stack .dline { border:1px solid #bdbdbd; padding:6px 8px; margin-bottom:6px; border-radius:4px; background:#fafafa; font-weight:600; line-height:1.35; }
-.desc-stack .dline:last-child { margin-bottom:0; }
+.items-tbl tfoot td { padding:8px 10px; font-weight:600; border:1px solid #222; }
+.items-tbl td.desc-line-cell { text-align:left; font-weight:600; }
+.items-tbl td.sl-cell { text-align:center; width:36px; }
 
 /* Financial summary */
 .fin-summary { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; background:#f8f9fa; padding:14px; border-radius:8px; margin-bottom:14px; }
@@ -138,24 +136,30 @@ body { font-family:'Arial',sans-serif; font-size:12.5px; color:#222; background:
     <table class="items-tbl">
         <thead>
             <tr>
-                <th width="38">#</th>
+                <th class="sl-cell" width="36">SL</th>
                 <th>Description</th>
-                <th width="60">Qty</th>
-                <th width="90">Unit</th>
-                <th width="130">Unit Price</th>
-                <th width="130">Amount (BDT)</th>
+                <th width="52">Qty</th>
+                <th width="80">Unit</th>
+                <th width="120">Unit Price</th>
+                <th width="120">Amount (BDT)</th>
             </tr>
         </thead>
         <tbody>
         {% for item in bill.items.all %}
+        {% for line in item.description_lines %}
         <tr>
-            <td class="mid-cell">{{ forloop.counter }}</td>
-            <td class="desc-cell"><div class="desc-stack">{% for line in item.description_lines %}<div class="dline">{{ line }}</div>{% endfor %}</div></td>
-            <td class="mid-cell" style="text-align:center;">{{ item.quantity }}</td>
-            <td class="mid-cell" style="text-align:center;color:#666;">{{ item.unit|default:"—" }}</td>
-            <td class="mid-cell" style="text-align:right;">৳{{ item.unit_price|floatformat:2 }}</td>
-            <td class="mid-cell" style="text-align:right;font-weight:700;">৳{{ item.amount|floatformat:2 }}</td>
+            {% if forloop.first %}
+            <td class="sl-cell" rowspan="{{ item.description_lines|length }}">{{ forloop.parentloop.counter }}</td>
+            {% endif %}
+            <td class="desc-line-cell">{{ line }}</td>
+            {% if forloop.first %}
+            <td style="text-align:center;" rowspan="{{ item.description_lines|length }}">{{ item.quantity }}</td>
+            <td style="text-align:center;color:#666;" rowspan="{{ item.description_lines|length }}">{{ item.unit|default:"—" }}</td>
+            <td style="text-align:right;" rowspan="{{ item.description_lines|length }}">৳{{ item.unit_price|floatformat:2 }}</td>
+            <td style="text-align:right;font-weight:700;" rowspan="{{ item.description_lines|length }}">৳{{ item.amount|floatformat:2 }}</td>
+            {% endif %}
         </tr>
+        {% endfor %}
         {% endfor %}
         </tbody>
         <tfoot>

@@ -292,9 +292,9 @@ class BillItem(models.Model):
 
     @property
     def description_lines(self):
-        """Non-empty lines for display (bill detail / PDF); single line if no newlines."""
+        """Lines for display (bill detail / PDF); newline = next row; empty shows —."""
         text = (self.description or '').strip()
         if not text:
-            return []
+            return ['—']
         lines = [ln.strip() for ln in self.description.splitlines() if ln.strip()]
         return lines if lines else [text]

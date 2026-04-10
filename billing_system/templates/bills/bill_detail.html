@@ -4,22 +4,18 @@
 
 {% block extra_css %}
 <style>
-.bill-items-table .desc-cell { vertical-align: middle; min-width: 220px; }
-.bill-items-table .bill-desc-line {
-    border: 1px solid #cfd8dc;
-    border-radius: 6px;
-    padding: 8px 10px;
-    margin-bottom: 8px;
+/* Excel-like items: description splits on newlines; SL/Qty/Unit/Price/Amount use rowspan */
+.bill-items-table { border-collapse: collapse; }
+.bill-items-table th,
+.bill-items-table td { border: 1px solid #212529 !important; vertical-align: middle; }
+.bill-items-table td.desc-line-cell {
+    text-align: left;
     font-weight: 600;
-    line-height: 1.35;
-    background: #fafbfd;
+    padding: 8px 10px;
+    min-width: 200px;
 }
-.bill-items-table .bill-desc-line:last-child { margin-bottom: 0; }
-.bill-items-table .num-cell,
-.bill-items-table .qty-cell,
-.bill-items-table .unit-cell,
-.bill-items-table .price-cell,
-.bill-items-table .amt-cell { vertical-align: middle; white-space: nowrap; }
+.bill-items-table .sl-cell { width: 44px; }
+.bill-items-table .nowrap-cell { white-space: nowrap; }
 </style>
 {% endblock %}
 
@@ -123,31 +119,33 @@
 
             <!-- Items Table -->
             <div class="table-responsive mb-3">
-                <table class="table table-bordered mb-0 bill-items-table">
+                <table class="table mb-0 bill-items-table">
                     <thead style="background:#1565C0;color:white;">
                         <tr>
-                            <th class="ps-3" width="40">#</th>
+                            <th class="text-center sl-cell" width="44">SL</th>
                             <th>Description</th>
                             <th class="text-center" width="70">Qty</th>
-                            <th width="100">Unit</th>
+                            <th class="text-center" width="100">Unit</th>
                             <th class="text-end" width="140">Unit Price</th>
                             <th class="text-end pe-3" width="140">Amount</th>
                         </tr>
                     </thead>
                     <tbody>
                     {% for item in bill.items.all %}
+                    {% for line in item.description_lines %}
                     <tr>
-                        <td class="ps-3 text-muted small num-cell">{{ forloop.counter }}</td>
-                        <td class="desc-cell">
-                            {% for line in item.description_lines %}
-                            <div class="bill-desc-line">{{ line }}</div>
-                            {% endfor %}
-                        </td>
-                        <td class="text-center qty-cell">{{ item.quantity }}</td>
-                        <td class="text-muted small unit-cell">{{ item.unit|default:"—" }}</td>
-                        <td class="text-end price-cell">৳{{ item.unit_price|floatformat:2 }}</td>
-                        <td class="text-end pe-3 fw-bold amt-cell">৳{{ item.amount|floatformat:2 }}</td>
+                        {% if forloop.first %}
+                        <td class="text-center sl-cell fw-semibold text-muted small" rowspan="{{ item.description_lines|length }}">{{ forloop.parentloop.counter }}</td>
+                        {% endif %}
+                        <td class="desc-line-cell">{{ line }}</td>
+                        {% if forloop.first %}
+                        <td class="text-center nowrap-cell" rowspan="{{ item.description_lines|length }}">{{ item.quantity }}</td>
+                        <td class="text-center text-muted small nowrap-cell" rowspan="{{ item.description_lines|length }}">{{ item.unit|default:"—" }}</td>
+                        <td class="text-end nowrap-cell" rowspan="{{ item.description_lines|length }}">৳{{ item.unit_price|floatformat:2 }}</td>
+                        <td class="text-end pe-3 fw-bold nowrap-cell" rowspan="{{ item.description_lines|length }}">৳{{ item.amount|floatformat:2 }}</td>
+                        {% endif %}
                     </tr>
+                    {% endfor %}
                     {% empty %}
                     <tr><td colspan="6" class="text-center text-muted py-3">No items</td></tr>
                     {% endfor %}
