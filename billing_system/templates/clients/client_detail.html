@@ -7,7 +7,7 @@
     <div>
         <a href="{% url 'client_list' %}" class="btn btn-sm btn-outline-secondary mb-2"><i class="bi bi-arrow-left me-1"></i>Back</a>
         <h4 class="fw-bold mb-0">{{ client.name }}</h4>
-        <p class="text-muted small mb-0">{{ client.company|default:"" }}</p>
+        <p class="text-muted small mb-0">{{ client.short_form|default:"" }}</p>
     </div>
     <div class="d-flex gap-2">
         {% if profile.can_edit_client or request.user.is_superuser %}
@@ -32,7 +32,7 @@
             <div class="card-body">
                 <table class="table table-sm table-borderless mb-0">
                     <tr><td class="text-muted small fw-semibold" width="40%">Name</td><td class="fw-semibold">{{ client.name }}</td></tr>
-                    <tr><td class="text-muted small fw-semibold">Company</td><td>{{ client.company|default:"—" }}</td></tr>
+                    <tr><td class="text-muted small fw-semibold">Client Name Short Form</td><td>{{ client.short_form|default:"—" }}</td></tr>
                     <tr><td class="text-muted small fw-semibold">Email</td><td>{{ client.email|default:"—" }}</td></tr>
                     <tr><td class="text-muted small fw-semibold">Phone</td><td>{{ client.phone|default:"—" }}</td></tr>
                     <tr><td class="text-muted small fw-semibold">Address</td><td>{{ client.address }}</td></tr>

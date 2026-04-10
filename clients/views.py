@@ -20,7 +20,7 @@ def client_list(request):
     clients = Client.objects.all()
     search = request.GET.get('search', '')
     if search:
-        clients = clients.filter(name__icontains=search) | clients.filter(company__icontains=search)
+        clients = clients.filter(name__icontains=search) | clients.filter(short_form__icontains=search)
     paginator = Paginator(clients, 10)
     page = request.GET.get('page')
     clients = paginator.get_page(page)
@@ -38,7 +38,7 @@ def client_add(request):
     if request.method == 'POST':
         client = Client(
             name=request.POST.get('name'),
-            company=request.POST.get('company'),
+            short_form=request.POST.get('short_form'),
             email=request.POST.get('email'),
             phone=request.POST.get('phone'),
             address=request.POST.get('address'),
@@ -267,7 +267,7 @@ def client_edit(request, pk):
     client = get_object_or_404(Client, pk=pk)
     if request.method == 'POST':
         client.name = request.POST.get('name')
-        client.company = request.POST.get('company')
+        client.short_form = request.POST.get('short_form')
         client.email = request.POST.get('email')
         client.phone = request.POST.get('phone')
         client.address = request.POST.get('address')

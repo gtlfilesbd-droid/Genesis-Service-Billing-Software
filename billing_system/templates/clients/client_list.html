@@ -17,7 +17,7 @@
 <div class="card form-card mb-4 p-3">
     <form method="get" class="row g-2 align-items-end">
         <div class="col-md-6">
-            <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Search by name or company...">
+            <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Search by name or short form...">
         </div>
         <div class="col-auto">
             <button type="submit" class="btn btn-primary"><i class="bi bi-search me-1"></i>Search</button>
@@ -34,7 +34,7 @@
                     <tr>
                         <th class="ps-3">#</th>
                         <th>Client Name</th>
-                        <th>Company</th>
+                        <th>Short Form</th>
                         <th>Phone</th>
                         <th>City</th>
                         <th>Agreements</th>
@@ -52,7 +52,7 @@
                         </a>
                         {% if client.email %}<div class="text-muted small">{{ client.email }}</div>{% endif %}
                     </td>
-                    <td>{{ client.company|default:"—" }}</td>
+                    <td>{{ client.short_form|default:"—" }}</td>
                     <td>{{ client.phone|default:"—" }}</td>
                     <td>{{ client.city|default:"—" }}</td>
                     <td>

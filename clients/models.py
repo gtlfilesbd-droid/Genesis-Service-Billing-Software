@@ -4,6 +4,7 @@ from django.contrib.auth.models import User
 
 class Client(models.Model):
     name = models.CharField(max_length=255, verbose_name='Client Name')
+    short_form = models.CharField(max_length=50, default='', verbose_name='Client Name Short Form')
     company = models.CharField(max_length=255, blank=True, null=True, verbose_name='Company')
     email = models.EmailField(blank=True, null=True)
     phone = models.CharField(max_length=20, blank=True, null=True)
@@ -23,7 +24,7 @@ class Client(models.Model):
         verbose_name_plural = 'Clients'
 
     def __str__(self):
-        return f"{self.name}" + (f" ({self.company})" if self.company else "")
+        return f"{self.name}" + (f" ({self.short_form})" if self.short_form else "")
 
     @property
     def active_agreements(self):

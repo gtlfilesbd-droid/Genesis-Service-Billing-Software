@@ -20,8 +20,8 @@
                     <input type="text" name="name" class="form-control" value="{{ client.name|default:'' }}" required>
                 </div>
                 <div class="col-md-6">
-                    <label class="form-label">Company</label>
-                    <input type="text" name="company" class="form-control" value="{{ client.company|default:'' }}">
+                    <label class="form-label">Client Name Short Form <span class="text-danger">*</span></label>
+                    <input type="text" name="short_form" class="form-control" value="{{ client.short_form|default:'' }}" required placeholder="e.g. DGAWL">
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Email</label>

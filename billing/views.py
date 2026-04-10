@@ -21,8 +21,15 @@ def get_profile(user):
 def _save_bill_from_post(request, bill):
     with transaction.atomic():
         bill.client_id = request.POST.get('client')
+        bill.agreement_id = request.POST.get('agreement') or None
+        if bill.agreement_id:
+            try:
+                ag = Agreement.objects.only('id', 'start_date').get(pk=bill.agreement_id)
+                bill.po_date = ag.start_date
+            except Agreement.DoesNotExist:
+                bill.po_date = None
         bill.invoice_date = request.POST.get('invoice_date') or date.today()
-        bill.po_date = request.POST.get('po_date') or None
+        # PO date is auto-set from agreement start_date (above)
         bill.bill_period = request.POST.get('bill_period', '')
         bill.service_period = request.POST.get('service_period', '')
         bill.project_value_yearly = request.POST.get('project_value_yearly') or 0
@@ -112,6 +119,8 @@ def bill_create(request):
     if request.method == 'POST':
         if not request.POST.get('client'):
             messages.error(request, 'Please select a client.')
+        elif not request.POST.get('agreement'):
+            messages.error(request, 'Please select an agreement.')
         else:
             bill = Bill()
             _save_bill_from_post(request, bill)
@@ -141,6 +150,9 @@ def bill_edit(request, pk):
         return redirect('bill_detail', pk=pk)
     clients = Client.objects.filter(is_active=True)
     if request.method == 'POST':
+        if not request.POST.get('agreement'):
+            messages.error(request, 'Please select an agreement.')
+            return redirect('bill_edit', pk=pk)
         _save_bill_from_post(request, bill)
         messages.success(request, f'Bill #{bill.bill_number} updated successfully.')
         return redirect('bill_detail', pk=pk)
@@ -155,8 +167,14 @@ def bill_edit(request, pk):
 @login_required
 def get_client_agreements(request, client_id):
     client = get_object_or_404(Client, pk=client_id)
-    agreements = client.agreements.filter(is_active=True).values('id', 'title')
-    return JsonResponse({'agreements': list(agreements)})
+    agreements = client.agreements.filter(is_active=True).order_by('-start_date', '-id')
+    payload = [{
+        'id': a.id,
+        'title': a.title,
+        'start_date': a.start_date.isoformat() if a.start_date else '',
+        'end_date': a.end_date.isoformat() if a.end_date else '',
+    } for a in agreements]
+    return JsonResponse({'agreements': payload})
 
 
 @login_required

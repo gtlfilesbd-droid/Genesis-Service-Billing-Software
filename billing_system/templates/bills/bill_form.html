@@ -65,21 +65,15 @@
                     <option value="{{ c.pk }}"
                         {% if bill and bill.client_id == c.pk %}selected{% endif %}
                         {% if request.GET.client == c.pk|stringformat:"s" %}selected{% endif %}>
-                        {{ c.name }}{% if c.company %} — {{ c.company }}{% endif %}
+                        {{ c.name }}{% if c.short_form %} ({{ c.short_form }}){% endif %}
                     </option>
                     {% endfor %}
                 </select>
             </div>
             <div class="col-md-5">
-                <label class="form-label">Status</label>
-                <select name="status" class="form-select">
-                    {% for val, label in status_choices %}
-                    <option value="{{ val }}"
-                        {% if bill and bill.status == val %}selected
-                        {% elif not bill and val == 'draft' %}selected{% endif %}>
-                        {{ label }}
-                    </option>
-                    {% endfor %}
+                <label class="form-label">Select Agreement <span class="req">*</span></label>
+                <select name="agreement" id="agreementSelect" class="form-select" required data-current="{% if bill and bill.agreement_id %}{{ bill.agreement_id }}{% endif %}">
+                    <option value="">— Select Agreement —</option>
                 </select>
             </div>
         </div>
@@ -97,8 +91,8 @@
                     value="{{ bill.invoice_date|default:today }}" required>
             </div>
             <div class="col-md-6">
-                <label class="form-label">PO Date</label>
-                <input type="date" name="po_date" class="form-control"
+                <label class="form-label">PO Date <span class="req">*</span></label>
+                <input type="date" name="po_date" id="poDateIn" class="form-control" readonly required
                     value="{{ bill.po_date|default:'' }}">
             </div>
         </div>
@@ -321,6 +315,18 @@
         <div class="section-card">
             <div class="section-header"><i class="bi bi-receipt-cutoff"></i>Bill Summary</div>
             <div class="section-body">
+                <div class="mb-3">
+                    <label class="form-label">Status</label>
+                    <select name="status" class="form-select">
+                        {% for val, label in status_choices %}
+                        <option value="{{ val }}"
+                            {% if bill and bill.status == val %}selected
+                            {% elif not bill and val == 'draft' %}selected{% endif %}>
+                            {{ label }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
                 <div class="fin-box mb-3">
                     <div class="fin-row">
                         <span class="fin-lbl">Items Subtotal</span>
@@ -425,6 +431,52 @@ document.querySelectorAll('#itemRows .item-row').forEach(attachListeners);
 // Auto-select from URL param
 const cp = new URLSearchParams(window.location.search).get('client');
 if (cp) { const s=document.getElementById('clientSelect'); if(s) s.value=cp; }
+
+async function loadAgreementsForClient(clientId) {
+    const sel = document.getElementById('agreementSelect');
+    if (!sel) return;
+    sel.innerHTML = `<option value="">— Select Agreement —</option>`;
+    if (!clientId) return;
+    try {
+        const res = await fetch(`/billing/api/client/${clientId}/agreements/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const data = await res.json();
+        window.__agreementsById = {};
+        (data.agreements || []).forEach(a => {
+            const opt = document.createElement('option');
+            opt.value = a.id;
+            opt.textContent = a.title;
+            sel.appendChild(opt);
+            window.__agreementsById[String(a.id)] = a;
+        });
+        const cur = sel.getAttribute('data-current');
+        if (cur) sel.value = cur;
+        syncPoDateFromAgreement();
+    } catch (e) {
+        // keep empty; server will validate
+    }
+}
+
+function syncPoDateFromAgreement() {
+    const po = document.getElementById('poDateIn');
+    const sel = document.getElementById('agreementSelect');
+    if (!po || !sel) return;
+    const m = window.__agreementsById || {};
+    const a = m[String(sel.value)];
+    po.value = a?.start_date || '';
+}
+
+document.getElementById('clientSelect')?.addEventListener('change', (e) => {
+    const sel = document.getElementById('agreementSelect');
+    if (sel) sel.setAttribute('data-current', '');
+    const po = document.getElementById('poDateIn');
+    if (po) po.value = '';
+    loadAgreementsForClient(e.target.value);
+});
+
+document.getElementById('agreementSelect')?.addEventListener('change', syncPoDateFromAgreement);
+
+// Initial load (edit page or preselected client from URL)
+loadAgreementsForClient(document.getElementById('clientSelect')?.value);
 
 recalc();
 </script>

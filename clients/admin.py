@@ -15,9 +15,9 @@ class AgreementInline(admin.StackedInline):
 
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
-    list_display = ('name', 'company', 'email', 'phone', 'city', 'is_active', 'created_at')
+    list_display = ('name', 'short_form', 'email', 'phone', 'city', 'is_active', 'created_at')
     list_filter = ('is_active', 'country', 'city')
-    search_fields = ('name', 'company', 'email', 'phone')
+    search_fields = ('name', 'short_form', 'email', 'phone')
     inlines = [AgreementInline]
 
 
