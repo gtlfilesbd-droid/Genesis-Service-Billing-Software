@@ -17,7 +17,7 @@
 <div class="card form-card mb-4 p-3">
     <form method="get" class="row g-2 align-items-end">
         <div class="col-md-4">
-            <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Bill number or client name...">
+            <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Invoice #, bill ref, or client name...">
         </div>
         <div class="col-md-3">
             <select name="status" class="form-select">
@@ -48,7 +48,7 @@
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        <th class="ps-3">Bill #</th>
+                        <th class="ps-3">Invoice #</th>
                         <th>Client</th>
                         <th>Bill Date</th>
                         <th>Due Date</th>
@@ -62,7 +62,8 @@
                 {% for bill in bills %}
                 <tr>
                     <td class="ps-3">
-                        <a href="{% url 'bill_detail' bill.pk %}" class="fw-bold text-primary text-decoration-none">{{ bill.bill_number }}</a>
+                        <a href="{% url 'bill_detail' bill.pk %}" class="fw-bold text-primary text-decoration-none">{{ bill.invoice_number|default:bill.bill_number }}</a>
+                        {% if bill.invoice_number %}<div class="text-muted small" style="font-size:0.7rem;">{{ bill.bill_number }}</div>{% endif %}
                     </td>
                     <td>
                         <a href="{% url 'client_detail' bill.client.pk %}" class="text-decoration-none text-dark">{{ bill.client.name }}</a>

@@ -10,11 +10,15 @@ class BillItemInline(admin.TabularInline):
 
 @admin.register(Bill)
 class BillAdmin(admin.ModelAdmin):
-    list_display = ('bill_number', 'client', 'invoice_date', 'total_in_bdt', 'status')
+    list_display = ('invoice_number', 'bill_number', 'client', 'invoice_date', 'total_in_bdt', 'status')
     list_filter = ('status', 'invoice_date')
-    search_fields = ('bill_number', 'client__name')
+    search_fields = ('invoice_number', 'bill_number', 'client__name')
     inlines = [BillItemInline]
-    readonly_fields = ('bill_number', 'subtotal', 'created_at')
+    readonly_fields = (
+        'bill_number', 'invoice_number', 'subtotal', 'created_at',
+        'bill_period_from', 'bill_period_to', 'bill_period',
+        'project_base_value', 'vat_amount', 'ait_amount', 'excluding_vat_ait', 'total_in_bdt',
+    )
 
 
 @admin.register(BillItem)

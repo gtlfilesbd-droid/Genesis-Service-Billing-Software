@@ -38,7 +38,6 @@
                     <tr><td class="text-muted small fw-semibold">Address</td><td>{{ client.address }}</td></tr>
                     <tr><td class="text-muted small fw-semibold">City</td><td>{{ client.city|default:"—" }}</td></tr>
                     <tr><td class="text-muted small fw-semibold">Country</td><td>{{ client.country }}</td></tr>
-                    <tr><td class="text-muted small fw-semibold">Tax ID</td><td>{{ client.tax_id|default:"—" }}</td></tr>
                     <tr><td class="text-muted small fw-semibold">Status</td>
                         <td><span class="badge {% if client.is_active %}badge-paid{% else %}badge-cancelled{% endif %} rounded-pill px-2">
                             {% if client.is_active %}Active{% else %}Inactive{% endif %}

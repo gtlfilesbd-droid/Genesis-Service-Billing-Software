@@ -5,10 +5,16 @@ from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.db import transaction
+from django.db.models import Prefetch
+
 from .models import Bill, BillItem
+from .invoice_number import build_invoice_number_base
+from .bill_period import compute_bill_period_window, format_bill_period_line
 from clients.models import Client, Agreement, Service
 from accounts.models import UserProfile
 from datetime import date, timedelta
+
+from django.utils.dateparse import parse_date
 
 
 def get_profile(user):
@@ -18,24 +24,56 @@ def get_profile(user):
         return UserProfile.objects.create(user=user)
 
 
+def _validate_bill_invoice_prerequisites(client_id, agreement_id):
+    if not client_id or not agreement_id:
+        return False, 'Please select a client and an agreement.'
+    ag = Agreement.objects.select_related('agreement_with').filter(pk=agreement_id).first()
+    if not ag:
+        return False, 'Invalid agreement.'
+    if not ag.agreement_with_id:
+        return False, 'Selected agreement must have an Agreement With company.'
+    cl = Client.objects.filter(pk=client_id).first()
+    if not cl:
+        return False, 'Invalid client.'
+    if not (cl.short_form or '').strip():
+        return False, 'Client must have a short form before creating a bill.'
+    return True, None
+
+
 def _save_bill_from_post(request, bill):
     with transaction.atomic():
         bill.client_id = request.POST.get('client')
         bill.agreement_id = request.POST.get('agreement') or None
+        inv_raw = request.POST.get('invoice_date')
+        if inv_raw:
+            bill.invoice_date = parse_date(inv_raw) or date.today()
+        else:
+            bill.invoice_date = date.today()
+        inv = bill.invoice_date
+
         if bill.agreement_id:
             try:
-                ag = Agreement.objects.only('id', 'start_date').get(pk=bill.agreement_id)
+                ag = Agreement.objects.prefetch_related(
+                    Prefetch('services', queryset=Service.objects.filter(is_active=True).order_by('id'))
+                ).get(pk=bill.agreement_id)
                 bill.po_date = ag.start_date
+                bf, bt = compute_bill_period_window(ag, inv)
+                bill.bill_period_from = bf
+                bill.bill_period_to = bt
+                bill.bill_period = format_bill_period_line(bf, bt)
             except Agreement.DoesNotExist:
                 bill.po_date = None
-        bill.invoice_date = request.POST.get('invoice_date') or date.today()
-        # PO date is auto-set from agreement start_date (above)
-        bill.bill_period = request.POST.get('bill_period', '')
-        bill.service_period = request.POST.get('service_period', '')
-        bill.project_value_yearly = request.POST.get('project_value_yearly') or 0
-        bill.project_base_value = request.POST.get('project_base_value') or 0
-        bill.excluding_vat_ait = request.POST.get('excluding_vat_ait') or 0
-        bill.total_in_bdt = request.POST.get('total_in_bdt') or 0
+                bill.bill_period_from = None
+                bill.bill_period_to = None
+                bill.bill_period = ''
+        else:
+            bill.po_date = None
+            bill.bill_period_from = None
+            bill.bill_period_to = None
+            bill.bill_period = ''
+        bill.service_period = ''
+        if 'project_value_yearly' in request.POST:
+            bill.project_value_yearly = request.POST.get('project_value_yearly') or 0
         bill.remark = request.POST.get('remark', '')
         bill.bank_name = request.POST.get('bank_name', '')
         bill.beneficiary = request.POST.get('beneficiary', '')
@@ -79,7 +117,16 @@ def _save_bill_from_post(request, bill):
                 unit_price=price,
             )
         bill.calculate_totals()
-        bill.save(update_fields=['subtotal'])
+        bill.save(
+            update_fields=[
+                'subtotal',
+                'project_base_value',
+                'vat_amount',
+                'ait_amount',
+                'excluding_vat_ait',
+                'total_in_bdt',
+            ]
+        )
     return bill
 
 
@@ -94,7 +141,9 @@ def bill_list(request):
     if client_filter:
         bills = bills.filter(client_id=client_filter)
     if search:
-        bills = bills.filter(bill_number__icontains=search) | bills.filter(client__name__icontains=search)
+        bills = bills.filter(bill_number__icontains=search) | bills.filter(
+            client__name__icontains=search
+        ) | bills.filter(invoice_number__icontains=search)
     paginator = Paginator(bills, 10)
     bills_page = paginator.get_page(request.GET.get('page'))
     profile = get_profile(request.user)
@@ -122,10 +171,17 @@ def bill_create(request):
         elif not request.POST.get('agreement'):
             messages.error(request, 'Please select an agreement.')
         else:
-            bill = Bill()
-            _save_bill_from_post(request, bill)
-            messages.success(request, f'Bill #{bill.bill_number} created successfully.')
-            return redirect('bill_detail', pk=bill.pk)
+            ok, err = _validate_bill_invoice_prerequisites(
+                request.POST.get('client'), request.POST.get('agreement')
+            )
+            if not ok:
+                messages.error(request, err)
+            else:
+                bill = Bill()
+                _save_bill_from_post(request, bill)
+                inv = bill.invoice_number or bill.bill_number
+                messages.success(request, f'Invoice {inv} created successfully.')
+                return redirect('bill_detail', pk=bill.pk)
     return render(request, 'bills/bill_form.html', {
         'clients': clients, 'profile': profile,
         'today': date.today(),
@@ -136,7 +192,10 @@ def bill_create(request):
 
 @login_required
 def bill_detail(request, pk):
-    bill = get_object_or_404(Bill, pk=pk)
+    bill = get_object_or_404(
+        Bill.objects.select_related('client', 'agreement', 'agreement__agreement_with'),
+        pk=pk,
+    )
     profile = get_profile(request.user)
     return render(request, 'bills/bill_detail.html', {'bill': bill, 'profile': profile})
 
@@ -153,8 +212,20 @@ def bill_edit(request, pk):
         if not request.POST.get('agreement'):
             messages.error(request, 'Please select an agreement.')
             return redirect('bill_edit', pk=pk)
+        ok, err = _validate_bill_invoice_prerequisites(
+            request.POST.get('client'), request.POST.get('agreement')
+        )
+        if not ok:
+            messages.error(request, err)
+            return render(request, 'bills/bill_form.html', {
+                'bill': bill, 'clients': clients, 'profile': profile,
+                'today': date.today(),
+                'status_choices': Bill._meta.get_field('status').choices,
+                'action': 'Edit',
+            })
         _save_bill_from_post(request, bill)
-        messages.success(request, f'Bill #{bill.bill_number} updated successfully.')
+        inv = bill.invoice_number or bill.bill_number
+        messages.success(request, f'Invoice {inv} updated successfully.')
         return redirect('bill_detail', pk=pk)
     return render(request, 'bills/bill_form.html', {
         'bill': bill, 'clients': clients, 'profile': profile,
@@ -167,7 +238,9 @@ def bill_edit(request, pk):
 @login_required
 def get_client_agreements(request, client_id):
     client = get_object_or_404(Client, pk=client_id)
-    agreements = client.agreements.filter(is_active=True).order_by('-start_date', '-id')
+    agreements = client.agreements.filter(is_active=True).prefetch_related(
+        Prefetch('services', queryset=Service.objects.filter(is_active=True).order_by('id'))
+    ).order_by('-start_date', '-id')
     payload = [{
         'id': a.id,
         'title': a.title,
@@ -175,6 +248,48 @@ def get_client_agreements(request, client_id):
         'end_date': a.end_date.isoformat() if a.end_date else '',
     } for a in agreements]
     return JsonResponse({'agreements': payload})
+
+
+@login_required
+def preview_bill_period(request):
+    agreement_id = request.GET.get('agreement')
+    inv_raw = request.GET.get('invoice_date')
+    if not agreement_id:
+        return JsonResponse({'bill_period_from': '', 'bill_period_to': '', 'summary': ''})
+    inv = parse_date(inv_raw) if inv_raw else date.today()
+    if inv is None:
+        inv = date.today()
+    ag = get_object_or_404(
+        Agreement.objects.prefetch_related(
+            Prefetch('services', queryset=Service.objects.filter(is_active=True).order_by('id'))
+        ),
+        pk=agreement_id,
+    )
+    bf, bt = compute_bill_period_window(ag, inv)
+    return JsonResponse({
+        'bill_period_from': bf.isoformat() if bf else '',
+        'bill_period_to': bt.isoformat() if bt else '',
+        'summary': format_bill_period_line(bf, bt),
+    })
+
+
+@login_required
+def preview_invoice_number(request):
+    client_id = request.GET.get('client')
+    agreement_id = request.GET.get('agreement')
+    invoice_date = request.GET.get('invoice_date')
+    if not client_id or not agreement_id or not invoice_date:
+        return JsonResponse({'preview': '', 'error': None})
+    ok, err = _validate_bill_invoice_prerequisites(client_id, agreement_id)
+    if not ok:
+        return JsonResponse({'preview': '', 'error': err})
+    try:
+        ag = Agreement.objects.select_related('agreement_with').get(pk=agreement_id)
+        client = Client.objects.get(pk=client_id)
+        preview = build_invoice_number_base(ag, client, invoice_date)
+    except (Agreement.DoesNotExist, Client.DoesNotExist, ValueError) as e:
+        return JsonResponse({'preview': '', 'error': str(e) or 'Could not build invoice number.'})
+    return JsonResponse({'preview': preview, 'error': None})
 
 
 @login_required
@@ -195,7 +310,8 @@ def bill_pdf(request, pk):
         html_string = render_to_string('bills/bill_pdf.html', {'bill': bill})
         pdf_file = weasyprint.HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
         response = HttpResponse(pdf_file, content_type='application/pdf')
-        response['Content-Disposition'] = f'attachment; filename="Invoice-{bill.bill_number}.pdf"'
+        fname = (bill.invoice_number or bill.bill_number).replace('/', '-')
+        response['Content-Disposition'] = f'attachment; filename="Invoice-{fname}.pdf"'
         return response
     except ImportError:
         messages.error(request, 'WeasyPrint is not installed.')
@@ -214,9 +330,10 @@ def bill_excel(request, pk):
         import openpyxl
         from openpyxl.styles import Font, Alignment, PatternFill
         bill = get_object_or_404(Bill, pk=pk)
+        inv_disp = bill.invoice_number or bill.bill_number
         wb = openpyxl.Workbook()
         ws = wb.active
-        ws.title = f"Invoice-{bill.bill_number}"
+        ws.title = f"Inv-{inv_disp}"[:31]
         blue = PatternFill('solid', fgColor='1565C0')
         wf = Font(bold=True, color='FFFFFF')
         bf = Font(bold=True)
@@ -226,15 +343,19 @@ def bill_excel(request, pk):
         ws['A1'].font = Font(size=18, bold=True, color='1565C0')
         ws['A1'].alignment = Alignment(horizontal='center')
         ws.merge_cells('A2:F2')
-        ws['A2'] = f'Invoice #: {bill.bill_number}'
+        ws['A2'] = f'Invoice #: {inv_disp}'
         ws['A2'].alignment = Alignment(horizontal='center')
         ws.append([])
         ws.append(['Bill To:', '', '', 'Invoice Details:', '', ''])
         ws['A4'].font = bf; ws['D4'].font = bf
         ws.append([bill.client.name, '', '', 'Invoice Date:', str(bill.invoice_date), ''])
         ws.append([bill.client.address, '', '', 'PO Date:', str(bill.po_date or ''), ''])
-        ws.append([bill.client.phone or '', '', '', 'Bill Period:', bill.bill_period or '', ''])
-        ws.append([bill.client.email or '', '', '', 'Service Period:', bill.service_period or '', ''])
+        if bill.bill_period_from or bill.bill_period_to:
+            ws.append([bill.client.phone or '', '', '', 'Bill From:', str(bill.bill_period_from or ''), ''])
+            ws.append([bill.client.email or '', '', '', 'Bill To:', str(bill.bill_period_to or ''), ''])
+        else:
+            ws.append([bill.client.phone or '', '', '', 'Bill Period:', bill.bill_period or '', ''])
+            ws.append([bill.client.email or '', '', '', '', '', ''])
         ws.append([])
         headers = ['#', 'Description', 'Qty', 'Unit', 'Unit Price (BDT)', 'Amount (BDT)']
         ws.append(headers)
@@ -245,12 +366,13 @@ def bill_excel(request, pk):
         for idx, item in enumerate(bill.items.all(), 1):
             ws.append([idx, item.description, float(item.quantity), item.unit or '', float(item.unit_price), float(item.amount)])
         ws.append([])
-        ws.append(['', '', '', '', 'Subtotal:', float(bill.subtotal)])
+        ws.append(['', '', '', '', 'Items Subtotal:', float(bill.subtotal)])
         ws.append([])
-        ws.append(['Financial Summary']); ws[f'A{ws.max_row}'].font = bf
-        ws.append(['Project Value Yearly:', '', '', '', '', float(bill.project_value_yearly)])
-        ws.append(['Project Base Value:', '', '', '', '', float(bill.project_base_value)])
-        ws.append(['Excluding VAT & AIT:', '', '', '', '', float(bill.excluding_vat_ait)])
+        ws.append(['VAT & AIT Details']); ws[f'A{ws.max_row}'].font = bf
+        ws.append(['Base Value (BDT):', '', '', '', '', float(bill.project_base_value)])
+        ws.append(['VAT (10%):', '', '', '', '', float(bill.vat_amount)])
+        ws.append(['AIT (5%):', '', '', '', '', float(bill.ait_amount)])
+        ws.append(['Total VAT & AIT:', '', '', '', '', float(bill.excluding_vat_ait)])
         ws.append(['Total In BDT:', '', '', '', '', float(bill.total_in_bdt)])
         if bill.bank_name:
             ws.append([])
@@ -268,7 +390,8 @@ def bill_excel(request, pk):
         for col, w in zip('ABCDEF', [28, 40, 10, 14, 22, 22]):
             ws.column_dimensions[col].width = w
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-        response['Content-Disposition'] = f'attachment; filename="Invoice-{bill.bill_number}.xlsx"'
+        fname = (bill.invoice_number or bill.bill_number).replace('/', '-')
+        response['Content-Disposition'] = f'attachment; filename="Invoice-{fname}.xlsx"'
         wb.save(response)
         return response
     except ImportError:
@@ -286,5 +409,6 @@ def mark_paid(request, pk):
     bill.status = 'paid'
     bill.payment_date = date.today()
     bill.save()
-    messages.success(request, f'Bill #{bill.bill_number} marked as paid.')
+    inv = bill.invoice_number or bill.bill_number
+    messages.success(request, f'Invoice {inv} marked as paid.')
     return redirect('bill_detail', pk=pk)

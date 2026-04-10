@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Invoice {{ bill.bill_number }}</title>
+<title>Invoice {{ bill.invoice_number|default:bill.bill_number }}</title>
 <style>
 * { margin:0; padding:0; box-sizing:border-box; }
 body { font-family:'Arial',sans-serif; font-size:12.5px; color:#222; background:#fff; }
@@ -98,7 +98,7 @@ body { font-family:'Arial',sans-serif; font-size:12.5px; color:#222; background:
         <div></div>
         <div class="inv-title">
             <h2>INVOICE</h2>
-            <div class="num">{{ bill.bill_number }}</div>
+            <div class="num">{{ bill.invoice_number|default:bill.bill_number }}</div>
         </div>
     </div>
 
@@ -119,11 +119,13 @@ body { font-family:'Arial',sans-serif; font-size:12.5px; color:#222; background:
         <div class="meta-box">
             <h4>Invoice Details</h4>
             <table class="meta-tbl">
-                <tr><td>Invoice No.</td><td>{{ bill.bill_number }}</td></tr>
+                <tr><td>Invoice No.</td><td>{{ bill.invoice_number|default:bill.bill_number }}</td></tr>
                 <tr><td>Invoice Date</td><td>{{ bill.invoice_date }}</td></tr>
                 {% if bill.po_date %}<tr><td>PO Date</td><td>{{ bill.po_date }}</td></tr>{% endif %}
-                {% if bill.bill_period %}<tr><td>Bill Period</td><td>{{ bill.bill_period }}</td></tr>{% endif %}
-                {% if bill.service_period %}<tr><td>Service Period</td><td>{{ bill.service_period }}</td></tr>{% endif %}
+                {% if bill.bill_period_from or bill.bill_period_to %}
+                <tr><td>Bill From</td><td>{{ bill.bill_period_from|default:"—" }}</td></tr>
+                <tr><td>Bill To</td><td>{{ bill.bill_period_to|default:"—" }}</td></tr>
+                {% elif bill.bill_period %}<tr><td>Bill Period</td><td>{{ bill.bill_period }}</td></tr>{% endif %}
             </table>
         </div>
     </div>
@@ -160,37 +162,30 @@ body { font-family:'Arial',sans-serif; font-size:12.5px; color:#222; background:
         </tfoot>
     </table>
 
-    <!-- Financial Summary -->
+    <!-- VAT & AIT Summary -->
     <div class="fin-summary">
         <div class="fin-item">
-            <div class="fl">Project Value Yearly</div>
-            <div class="fv">৳{{ bill.project_value_yearly|floatformat:2 }}</div>
-        </div>
-        <div class="fin-item">
-            <div class="fl">Project Base Value</div>
+            <div class="fl">Base Value (BDT)</div>
             <div class="fv">৳{{ bill.project_base_value|floatformat:2 }}</div>
         </div>
         <div class="fin-item">
-            <div class="fl">Excl. VAT & AIT</div>
-            <div class="fv">৳{{ bill.excluding_vat_ait|floatformat:2 }}</div>
+            <div class="fl">VAT (10%)</div>
+            <div class="fv">৳{{ bill.vat_amount|floatformat:2 }}</div>
         </div>
         <div class="fin-item">
-            <div class="fl">Items Subtotal</div>
-            <div class="fv">৳{{ bill.subtotal|floatformat:2 }}</div>
+            <div class="fl">AIT (5%)</div>
+            <div class="fv">৳{{ bill.ait_amount|floatformat:2 }}</div>
+        </div>
+        <div class="fin-item">
+            <div class="fl">Total VAT &amp; AIT</div>
+            <div class="fv">৳{{ bill.excluding_vat_ait|floatformat:2 }}</div>
         </div>
     </div>
 
     <div class="fin-total">
-        <span class="ft-label">TOTAL IN BDT</span>
+        <span class="ft-label">TOTAL IN BDT (BASE + VAT + AIT)</span>
         <span class="ft-value">৳{{ bill.total_in_bdt|floatformat:2 }}</span>
     </div>
-
-    {% if bill.remark %}
-    <div class="remark-box">
-        <div class="rl">Remark</div>
-        <div>{{ bill.remark }}</div>
-    </div>
-    {% endif %}
 
     <!-- Bank Information -->
     {% if bill.bank_name %}
@@ -228,6 +223,13 @@ body { font-family:'Arial',sans-serif; font-size:12.5px; color:#222; background:
             <div class="bank-row"><span class="bank-key">TIN</span><span class="bank-val">{{ bill.tin_number }}</span></div>
             {% endif %}
         </div>
+    </div>
+    {% endif %}
+
+    {% if bill.remark %}
+    <div class="remark-box">
+        <div class="rl">Remark</div>
+        <div>{{ bill.remark }}</div>
     </div>
     {% endif %}
 

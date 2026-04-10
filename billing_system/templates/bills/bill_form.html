@@ -42,7 +42,7 @@
         <i class="bi bi-arrow-left me-1"></i>Back to Bills
     </a>
     <h4 class="fw-bold mb-0 mt-2">
-        {% if action == 'Edit' %}Edit Bill — <span class="text-primary">#{{ bill.bill_number }}</span>
+        {% if action == 'Edit' %}Edit Bill — <span class="text-primary">{{ bill.invoice_number|default:bill.bill_number }}</span>
         {% else %}Create New Bill{% endif %}
     </h4>
 </div>
@@ -52,9 +52,9 @@
 <div class="row g-0">
 <div class="col-lg-9 pe-lg-3">
 
-<!-- ① CLIENT -->
+<!-- Client -->
 <div class="section-card">
-    <div class="section-header"><i class="bi bi-person-circle"></i>① Client</div>
+    <div class="section-header"><i class="bi bi-person-circle"></i>Client</div>
     <div class="section-body">
         <div class="row g-3">
             <div class="col-md-7">
@@ -80,49 +80,54 @@
     </div>
 </div>
 
-<!-- ② ③ DATES -->
+<!-- Dates + Invoice number -->
 <div class="section-card">
-    <div class="section-header"><i class="bi bi-calendar3"></i>② Invoice Date &nbsp;&amp;&nbsp; ③ PO Date</div>
+    <div class="section-header"><i class="bi bi-calendar3"></i>Invoice Date &nbsp;&amp;&nbsp; PO Date &nbsp;&amp;&nbsp; Invoice No. <small class="opacity-75">(auto)</small></div>
     <div class="section-body">
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label">Invoice Date <span class="req">*</span></label>
-                <input type="date" name="invoice_date" class="form-control"
-                    value="{{ bill.invoice_date|default:today }}" required>
+                <input type="date" name="invoice_date" id="invoiceDateIn" class="form-control"
+                    value="{% if bill and bill.invoice_date %}{{ bill.invoice_date|date:'Y-m-d' }}{% else %}{{ today|date:'Y-m-d' }}{% endif %}" required>
             </div>
             <div class="col-md-6">
                 <label class="form-label">PO Date <span class="req">*</span></label>
                 <input type="date" name="po_date" id="poDateIn" class="form-control" readonly required
-                    value="{{ bill.po_date|default:'' }}">
+                    value="{% if bill and bill.po_date %}{{ bill.po_date|date:'Y-m-d' }}{% endif %}">
+            </div>
+            <div class="col-12">
+                <label class="form-label">Invoice Number <span class="req">*</span> <span class="text-muted fw-normal text-lowercase" style="font-size:0.72rem;">(auto)</span></label>
+                <input type="text" class="form-control bg-light fw-semibold" id="invoiceNumberField" readonly
+                    value="{% if bill and bill.invoice_number %}{{ bill.invoice_number }}{% endif %}"
+                    placeholder="Select client &amp; agreement — number appears here automatically"
+                    autocomplete="off">
             </div>
         </div>
     </div>
 </div>
 
-<!-- ④ ⑤ PERIODS -->
+<!-- Bill period (previous completed cycle vs invoice date; clipped to agreement) -->
 <div class="section-card">
-    <div class="section-header"><i class="bi bi-clock-history"></i>④ Bill Period &nbsp;&amp;&nbsp; ⑤ Service Period</div>
+    <div class="section-header"><i class="bi bi-clock-history"></i>Bill Period <small class="opacity-75">(auto)</small></div>
     <div class="section-body">
         <div class="row g-3">
             <div class="col-md-6">
-                <label class="form-label">Bill Period</label>
-                <input type="text" name="bill_period" class="form-control"
-                    placeholder="e.g. January 2025"
-                    value="{{ bill.bill_period|default:'' }}">
+                <label class="form-label">Bill From</label>
+                <input type="date" id="billPeriodFromIn" class="form-control bg-light" readonly
+                    value="{% if bill and bill.bill_period_from %}{{ bill.bill_period_from|date:'Y-m-d' }}{% endif %}">
             </div>
             <div class="col-md-6">
-                <label class="form-label">Service Period</label>
-                <input type="text" name="service_period" class="form-control"
-                    placeholder="e.g. Jan 2025 – Dec 2025"
-                    value="{{ bill.service_period|default:'' }}">
+                <label class="form-label">Bill To</label>
+                <input type="date" id="billPeriodToIn" class="form-control bg-light" readonly
+                    value="{% if bill and bill.bill_period_to %}{{ bill.bill_period_to|date:'Y-m-d' }}{% endif %}">
             </div>
         </div>
     </div>
 </div>
 
-<!-- ⑥ DESCRIPTION ITEMS -->
+<!-- Service items -->
 <div class="section-card">
-    <div class="section-header"><i class="bi bi-list-ul"></i>⑥ Description — Service Items (with Qty, Unit, Price)</div>
+    <div class="section-header"><i class="bi bi-list-ul"></i>Service Items <small class="opacity-75 fw-normal">(from agreement — Qty 1, Unit Job)</small></div>
     <div class="section-body p-0">
         <div class="table-responsive">
             <table class="table mb-0" id="itemsTable">
@@ -145,7 +150,7 @@
                         <td><input type="number" name="item_quantity[]" class="form-control form-control-sm qty-in"
                             value="{{ item.quantity }}" step="0.01" min="0.01"></td>
                         <td><input type="text" name="item_unit[]" class="form-control form-control-sm"
-                            value="{{ item.unit|default:'' }}" placeholder="month / pcs…"></td>
+                            value="{{ item.unit|default:'Job' }}" placeholder="Job"></td>
                         <td><input type="number" name="item_price[]" class="form-control form-control-sm price-in"
                             value="{{ item.unit_price }}" step="0.01" min="0"></td>
                         <td><input type="number" class="form-control form-control-sm amt-out bg-light"
@@ -159,7 +164,7 @@
                         <td><textarea name="item_description[]" class="form-control form-control-sm"
                             placeholder="Describe the service…" required></textarea></td>
                         <td><input type="number" name="item_quantity[]" class="form-control form-control-sm qty-in" value="1" step="0.01" min="0.01"></td>
-                        <td><input type="text" name="item_unit[]" class="form-control form-control-sm" placeholder="month / pcs…"></td>
+                        <td><input type="text" name="item_unit[]" class="form-control form-control-sm" value="Job" placeholder="Job"></td>
                         <td><input type="number" name="item_price[]" class="form-control form-control-sm price-in" step="0.01" min="0" placeholder="0.00"></td>
                         <td><input type="number" class="form-control form-control-sm amt-out bg-light" value="0.00" readonly tabindex="-1"></td>
                         <td><button type="button" class="btn btn-outline-danger del-btn" onclick="removeRow(this)">
@@ -181,64 +186,50 @@
     </div>
 </div>
 
-<!-- ⑦–⑩ FINANCIAL -->
+<!-- VAT & AIT (amounts follow Items Subtotal automatically) -->
 <div class="section-card">
-    <div class="section-header"><i class="bi bi-calculator-fill"></i>⑦–⑩ Financial Details</div>
+    <div class="section-header"><i class="bi bi-percent"></i>VAT &amp; AIT Details</div>
     <div class="section-body">
         <div class="row g-3">
             <div class="col-sm-6">
-                <label class="form-label">⑦ Project Value Yearly (BDT)</label>
+                <label class="form-label">Base Value (BDT) <small class="text-muted fw-normal">(Items Subtotal)</small></label>
                 <div class="input-group">
                     <span class="input-group-text bg-light">৳</span>
-                    <input type="number" name="project_value_yearly" id="pvyIn" class="form-control"
-                        step="0.01" min="0" placeholder="0.00"
-                        value="{{ bill.project_value_yearly|default:'' }}">
+                    <input type="text" id="baseValueOut" class="form-control bg-light" readonly
+                        value="{% if bill %}{{ bill.project_base_value|floatformat:2 }}{% else %}0.00{% endif %}">
                 </div>
             </div>
             <div class="col-sm-6">
-                <label class="form-label">⑧ Project Base Value (BDT)</label>
+                <label class="form-label">VAT <small class="text-muted fw-normal">(10% of base)</small></label>
                 <div class="input-group">
                     <span class="input-group-text bg-light">৳</span>
-                    <input type="number" name="project_base_value" id="pbvIn" class="form-control"
-                        step="0.01" min="0" placeholder="0.00"
-                        value="{{ bill.project_base_value|default:'' }}">
+                    <input type="text" id="vatOut" class="form-control bg-light" readonly
+                        value="{% if bill %}{{ bill.vat_amount|floatformat:2 }}{% else %}0.00{% endif %}">
                 </div>
             </div>
             <div class="col-sm-6">
-                <label class="form-label">⑨ Excluding VAT & AIT (BDT)</label>
+                <label class="form-label">AIT <small class="text-muted fw-normal">(5% of base)</small></label>
                 <div class="input-group">
                     <span class="input-group-text bg-light">৳</span>
-                    <input type="number" name="excluding_vat_ait" id="evaIn" class="form-control"
-                        step="0.01" min="0" placeholder="0.00"
-                        value="{{ bill.excluding_vat_ait|default:'' }}">
+                    <input type="text" id="aitOut" class="form-control bg-light" readonly
+                        value="{% if bill %}{{ bill.ait_amount|floatformat:2 }}{% else %}0.00{% endif %}">
                 </div>
             </div>
             <div class="col-sm-6">
-                <label class="form-label">⑩ Total In BDT</label>
+                <label class="form-label">Total VAT &amp; AIT In BDT</label>
                 <div class="input-group">
-                    <span class="input-group-text bg-success text-white">৳</span>
-                    <input type="number" name="total_in_bdt" id="tibIn" class="form-control fw-bold"
-                        step="0.01" min="0" placeholder="0.00"
-                        value="{{ bill.total_in_bdt|default:'' }}">
+                    <span class="input-group-text bg-primary text-white">৳</span>
+                    <input type="text" id="totalVatAitOut" class="form-control bg-light fw-semibold" readonly
+                        value="{% if bill %}{{ bill.excluding_vat_ait|floatformat:2 }}{% else %}0.00{% endif %}">
                 </div>
-                <div class="form-text">Final payable amount</div>
             </div>
         </div>
     </div>
 </div>
 
-<!-- ⑪ REMARK -->
+<!-- Bank information -->
 <div class="section-card">
-    <div class="section-header"><i class="bi bi-chat-left-text"></i>⑪ Remark</div>
-    <div class="section-body">
-        <textarea name="remark" class="form-control" rows="3"
-            placeholder="Additional notes or remarks…">{{ bill.remark|default:'' }}</textarea>
-    </div>
-</div>
-
-<!-- ⑫ BANK INFORMATION -->
-<div class="section-card">
-    <div class="section-header"><i class="bi bi-bank2"></i>⑫ Bank Information</div>
+    <div class="section-header"><i class="bi bi-bank2"></i>Bank Information</div>
     <div class="section-body">
         <div class="row g-3">
             <div class="col-md-6">
@@ -307,6 +298,15 @@
     </div>
 </div>
 
+<!-- Remark -->
+<div class="section-card">
+    <div class="section-header"><i class="bi bi-chat-left-text"></i>Remark</div>
+    <div class="section-body">
+        <textarea name="remark" class="form-control" rows="3"
+            placeholder="Additional notes or remarks…">{{ bill.remark|default:'' }}</textarea>
+    </div>
+</div>
+
 </div><!-- /col-lg-9 -->
 
 <!-- STICKY SIDEBAR -->
@@ -333,12 +333,12 @@
                         <span class="fin-val" id="sideSubtotal">৳0.00</span>
                     </div>
                     <div class="fin-row">
-                        <span class="fin-lbl">Excl. VAT & AIT</span>
-                        <span class="fin-val" id="sideEva">৳—</span>
+                        <span class="fin-lbl">Total VAT &amp; AIT</span>
+                        <span class="fin-val" id="sideVatAit">৳0.00</span>
                     </div>
                     <div class="fin-row" style="margin-top:4px; padding-top:8px; border-top:2px solid #81c784; border-bottom:none;">
-                        <span class="fin-lbl" style="font-size:0.95rem; font-weight:700; color:#1b5e20;">Total BDT</span>
-                        <span class="fin-val" style="font-size:1.05rem;" id="sideTib">৳0.00</span>
+                        <span class="fin-lbl" style="font-size:0.95rem; font-weight:700; color:#1b5e20;">Total In BDT</span>
+                        <span class="fin-val" style="font-size:1.05rem;" id="sideGrandTotal">৳0.00</span>
                     </div>
                 </div>
 
@@ -355,7 +355,8 @@
                 {% if bill %}
                 <hr class="my-3">
                 <div class="text-center small text-muted">
-                    <div class="fw-semibold text-dark">#{{ bill.bill_number }}</div>
+                    <div class="fw-semibold text-dark">{{ bill.invoice_number|default:bill.bill_number }}</div>
+                    {% if bill.invoice_number %}<div class="text-muted" style="font-size:0.75rem;">Ref {{ bill.bill_number }}</div>{% endif %}
                     <div>Created {{ bill.created_at|date:"d M Y" }}</div>
                 </div>
                 {% endif %}
@@ -370,8 +371,28 @@
 
 {% block extra_js %}
 <script>
-// ─── Row management ────────────────────────────────────────────
-function addRow() {
+const BILLING_PREVIEW_INVOICE_URL = "{% url 'preview_invoice_number' %}";
+const BILLING_AGREEMENTS_URL_TEMPLATE = "{% url 'get_client_agreements' 0 %}".replace(/\/0\//, '/__CID__/');
+const BILLING_AGREEMENT_SERVICES_URL_TEMPLATE = "{% url 'get_agreement_services' 0 %}".replace(/\/0\//, '/__AID__/');
+const BILLING_PREVIEW_BILL_PERIOD_URL = "{% url 'preview_bill_period' %}";
+
+/** Create & Edit: invoice date = viewer's local "today" when the page opens (invoice # date segment follows). */
+function localDateYMD() {
+    const d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+}
+(function setInvoiceDateToTodayIfNew() {
+    const el = document.getElementById('invoiceDateIn');
+    if (!el) return;
+    {% if action == 'Edit' %}
+    return;
+    {% endif %}
+    el.value = localDateYMD();
+})();
+// ─── Row management (agreement: name + charge, Qty 1, Unit Job) ─────────────
+const DEFAULT_ITEM_UNIT = 'Job';
+
+function appendAgreementItemRow(description, unitPrice) {
     const tbody = document.getElementById('itemRows');
     const tr = document.createElement('tr');
     tr.className = 'item-row';
@@ -379,15 +400,61 @@ function addRow() {
         <td><textarea name="item_description[]" class="form-control form-control-sm"
             placeholder="Describe the service…" required></textarea></td>
         <td><input type="number" name="item_quantity[]" class="form-control form-control-sm qty-in" value="1" step="0.01" min="0.01"></td>
-        <td><input type="text" name="item_unit[]" class="form-control form-control-sm" placeholder="month / pcs…"></td>
+        <td><input type="text" name="item_unit[]" class="form-control form-control-sm" value="${DEFAULT_ITEM_UNIT}" placeholder="Job"></td>
         <td><input type="number" name="item_price[]" class="form-control form-control-sm price-in" step="0.01" min="0" placeholder="0.00"></td>
         <td><input type="number" class="form-control form-control-sm amt-out bg-light" value="0.00" readonly tabindex="-1"></td>
         <td><button type="button" class="btn btn-outline-danger del-btn" onclick="removeRow(this)">
             <i class="bi bi-trash3" style="font-size:0.75rem"></i></button></td>
     `;
+    tr.querySelector('textarea').value = description || '';
+    const pin = tr.querySelector('.price-in');
+    if (unitPrice !== undefined && unitPrice !== null && unitPrice !== '') {
+        pin.value = String(unitPrice);
+    }
     tbody.appendChild(tr);
     attachListeners(tr);
-    tr.querySelector('textarea').focus();
+}
+
+function resetItemRowsToBlank() {
+    const tbody = document.getElementById('itemRows');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    appendAgreementItemRow('', '');
+    recalc();
+}
+
+async function loadItemsFromAgreement(agreementId) {
+    const tbody = document.getElementById('itemRows');
+    if (!tbody) return;
+    if (!agreementId) {
+        resetItemRowsToBlank();
+        return;
+    }
+    const url = BILLING_AGREEMENT_SERVICES_URL_TEMPLATE.replace('__AID__', String(agreementId));
+    try {
+        const res = await fetch(url, {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        if (!res.ok) throw new Error('services fetch failed');
+        const data = await res.json();
+        const services = data.services || [];
+        tbody.innerHTML = '';
+        if (services.length === 0) {
+            appendAgreementItemRow('', '');
+        } else {
+            services.forEach(s => appendAgreementItemRow(s.name || '', s.charge));
+        }
+        recalc();
+    } catch (e) {
+        resetItemRowsToBlank();
+    }
+}
+
+function addRow() {
+    appendAgreementItemRow('', '');
+    const tbody = document.getElementById('itemRows');
+    tbody.lastElementChild.querySelector('textarea').focus();
     recalc();
 }
 
@@ -412,13 +479,26 @@ function rowAmt(tr) {
 function recalc() {
     let subtotal = 0;
     document.querySelectorAll('#itemRows .item-row').forEach(tr => { subtotal += rowAmt(tr); });
-    const eva = parseFloat(document.getElementById('evaIn')?.value) || 0;
-    const tib = parseFloat(document.getElementById('tibIn')?.value) || 0;
+    const base = subtotal;
+    const vat = Math.round(base * 0.10 * 100) / 100;
+    const ait = Math.round(base * 0.05 * 100) / 100;
+    const totalVatAit = Math.round((vat + ait) * 100) / 100;
+    const grand = Math.round((base + totalVatAit) * 100) / 100;
     const fmt = v => '৳' + v.toLocaleString('en-IN', {minimumFractionDigits:2});
     document.getElementById('subtotalLive').textContent = fmt(subtotal);
     document.getElementById('sideSubtotal').textContent = fmt(subtotal);
-    document.getElementById('sideEva').textContent = eva ? fmt(eva) : '৳—';
-    document.getElementById('sideTib').textContent = fmt(tib || subtotal);
+    const bEl = document.getElementById('baseValueOut');
+    const vEl = document.getElementById('vatOut');
+    const aEl = document.getElementById('aitOut');
+    const tEl = document.getElementById('totalVatAitOut');
+    if (bEl) bEl.value = base.toFixed(2);
+    if (vEl) vEl.value = vat.toFixed(2);
+    if (aEl) aEl.value = ait.toFixed(2);
+    if (tEl) tEl.value = totalVatAit.toFixed(2);
+    const sideV = document.getElementById('sideVatAit');
+    const sideG = document.getElementById('sideGrandTotal');
+    if (sideV) sideV.textContent = fmt(totalVatAit);
+    if (sideG) sideG.textContent = fmt(grand);
 }
 
 function attachListeners(tr) {
@@ -426,19 +506,67 @@ function attachListeners(tr) {
 }
 
 document.querySelectorAll('#itemRows .item-row').forEach(attachListeners);
-['evaIn','tibIn'].forEach(id => { const el=document.getElementById(id); if(el) el.addEventListener('input',recalc); });
 
 // Auto-select from URL param
 const cp = new URLSearchParams(window.location.search).get('client');
 if (cp) { const s=document.getElementById('clientSelect'); if(s) s.value=cp; }
 
+let _previewTimer;
+function refreshInvoicePreview() {
+    const field = document.getElementById('invoiceNumberField');
+    if (!field) return;
+    const client = document.getElementById('clientSelect')?.value;
+    const agreement = document.getElementById('agreementSelect')?.value;
+    const invoiceDate = document.getElementById('invoiceDateIn')?.value;
+    clearTimeout(_previewTimer);
+    if (!client || !agreement || !invoiceDate) {
+        field.value = '';
+        field.placeholder = 'Select client & agreement — number appears here automatically';
+        return;
+    }
+    _previewTimer = setTimeout(async () => {
+        try {
+            const q = new URLSearchParams({ client, agreement, invoice_date: invoiceDate });
+            const res = await fetch(`${BILLING_PREVIEW_INVOICE_URL}?${q}`, {
+                credentials: 'same-origin',
+                headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+            });
+            if (!res.ok) {
+                field.value = '';
+                field.placeholder = 'Could not load preview (' + res.status + ')';
+                return;
+            }
+            const data = await res.json();
+            if (data.error) {
+                field.value = '';
+                field.placeholder = data.error;
+            } else {
+                field.value = data.preview || '';
+                field.placeholder = 'Select client & agreement — number appears here automatically';
+            }
+        } catch (e) {
+            field.value = '';
+            field.placeholder = 'Could not preview invoice number';
+        }
+    }, 200);
+}
+
 async function loadAgreementsForClient(clientId) {
     const sel = document.getElementById('agreementSelect');
     if (!sel) return;
     sel.innerHTML = `<option value="">— Select Agreement —</option>`;
-    if (!clientId) return;
+    if (!clientId) {
+        clearBillPeriodFields();
+        resetItemRowsToBlank();
+        refreshInvoicePreview();
+        return;
+    }
     try {
-        const res = await fetch(`/billing/api/client/${clientId}/agreements/`, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        const agUrl = BILLING_AGREEMENTS_URL_TEMPLATE.replace('__CID__', String(clientId));
+        const res = await fetch(agUrl, {
+            credentials: 'same-origin',
+            headers: { 'X-Requested-With': 'XMLHttpRequest', 'Accept': 'application/json' },
+        });
         const data = await res.json();
         window.__agreementsById = {};
         (data.agreements || []).forEach(a => {
@@ -453,6 +581,41 @@ async function loadAgreementsForClient(clientId) {
         syncPoDateFromAgreement();
     } catch (e) {
         // keep empty; server will validate
+    } finally {
+        refreshInvoicePreview();
+        await refreshBillPeriodPreview();
+    }
+}
+
+function clearBillPeriodFields() {
+    const f = document.getElementById('billPeriodFromIn');
+    const t = document.getElementById('billPeriodToIn');
+    if (f) f.value = '';
+    if (t) t.value = '';
+}
+
+async function refreshBillPeriodPreview() {
+    const agreementId = document.getElementById('agreementSelect')?.value;
+    const inv = document.getElementById('invoiceDateIn')?.value;
+    const fromEl = document.getElementById('billPeriodFromIn');
+    const toEl = document.getElementById('billPeriodToIn');
+    if (!fromEl || !toEl) return;
+    if (!agreementId || !inv) {
+        clearBillPeriodFields();
+        return;
+    }
+    try {
+        const q = new URLSearchParams({ agreement: agreementId, invoice_date: inv });
+        const res = await fetch(`${BILLING_PREVIEW_BILL_PERIOD_URL}?${q}`, {
+            credentials: 'same-origin',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+        });
+        if (!res.ok) throw new Error('bill period preview failed');
+        const data = await res.json();
+        fromEl.value = data.bill_period_from || '';
+        toEl.value = data.bill_period_to || '';
+    } catch (e) {
+        clearBillPeriodFields();
     }
 }
 
@@ -465,19 +628,38 @@ function syncPoDateFromAgreement() {
     po.value = a?.start_date || '';
 }
 
-document.getElementById('clientSelect')?.addEventListener('change', (e) => {
+document.getElementById('clientSelect')?.addEventListener('change', async (e) => {
     const sel = document.getElementById('agreementSelect');
     if (sel) sel.setAttribute('data-current', '');
     const po = document.getElementById('poDateIn');
     if (po) po.value = '';
-    loadAgreementsForClient(e.target.value);
+    clearBillPeriodFields();
+    resetItemRowsToBlank();
+    await loadAgreementsForClient(e.target.value);
+    refreshInvoicePreview();
 });
 
-document.getElementById('agreementSelect')?.addEventListener('change', syncPoDateFromAgreement);
+document.getElementById('agreementSelect')?.addEventListener('change', async () => {
+    syncPoDateFromAgreement();
+    await refreshBillPeriodPreview();
+    refreshInvoicePreview();
+    loadItemsFromAgreement(document.getElementById('agreementSelect')?.value);
+});
+
+const _invDateEl = document.getElementById('invoiceDateIn');
+_invDateEl?.addEventListener('change', () => {
+    refreshInvoicePreview();
+    void refreshBillPeriodPreview();
+});
+_invDateEl?.addEventListener('input', () => {
+    refreshInvoicePreview();
+    void refreshBillPeriodPreview();
+});
 
 // Initial load (edit page or preselected client from URL)
-loadAgreementsForClient(document.getElementById('clientSelect')?.value);
-
-recalc();
+(async function initBillFormAgreements() {
+    await loadAgreementsForClient(document.getElementById('clientSelect')?.value);
+    recalc();
+})();
 </script>
 {% endblock %}

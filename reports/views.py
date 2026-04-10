@@ -92,7 +92,7 @@ def export_bills_csv(request):
     writer = csv.writer(response)
     writer.writerow(['Bill Number', 'Client', 'Bill Date', 'Due Date',
                      'Period From', 'Period To', 'Subtotal', 'Discount',
-                     'Tax', 'Total', 'Status', 'Payment Date'])
+                     'Total VAT & AIT', 'Total', 'Status', 'Payment Date'])
 
     bills = Bill.objects.select_related('client').all()
     status_filter = request.GET.get('status', '')
@@ -127,7 +127,7 @@ def export_bills_excel(request):
 
         headers = ['Bill Number', 'Client', 'Bill Date', 'Due Date',
                    'Period From', 'Period To', 'Subtotal', 'Discount',
-                   'Tax', 'Total', 'Status', 'Payment Date']
+                   'Total VAT & AIT', 'Total', 'Status', 'Payment Date']
         ws.append(headers)
 
         hfill = PatternFill('solid', fgColor='1565C0')

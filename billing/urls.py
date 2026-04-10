@@ -12,4 +12,6 @@ urlpatterns = [
     path('<int:pk>/mark-paid/', views.mark_paid, name='mark_paid'),
     path('api/client/<int:client_id>/agreements/', views.get_client_agreements, name='get_client_agreements'),
     path('api/agreement/<int:agreement_id>/services/', views.get_agreement_services, name='get_agreement_services'),
+    path('api/preview-invoice-number/', views.preview_invoice_number, name='preview_invoice_number'),
+    path('api/preview-bill-period/', views.preview_bill_period, name='preview_bill_period'),
 ]
