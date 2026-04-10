@@ -31,7 +31,7 @@ class BillAdmin(admin.ModelAdmin):
     readonly_fields = (
         'bill_number', 'invoice_number', 'subtotal', 'created_at',
         'bill_period_from', 'bill_period_to', 'bill_period',
-        'project_base_value', 'vat_rate_percent', 'ait_rate_percent',
+        'project_base_value',
         'vat_amount', 'ait_amount', 'excluding_vat_ait', 'total_in_bdt',
         'bank_name', 'beneficiary', 'bank_branch', 'bank_address_line1', 'bank_address_line2',
         'account_number', 'swift_code', 'branch_routing_code', 'bin_number', 'tin_number',

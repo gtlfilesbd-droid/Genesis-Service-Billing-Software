@@ -13,8 +13,24 @@ from .bill_period import compute_bill_period_window, format_bill_period_line
 from clients.models import Client, Agreement, Service
 from accounts.models import UserProfile
 from datetime import date, timedelta
+from decimal import Decimal, InvalidOperation
 
 from django.utils.dateparse import parse_date
+
+
+def _parse_rate_percent(request, key, default):
+    raw = request.POST.get(key)
+    if raw is None or str(raw).strip() == '':
+        return default
+    try:
+        v = Decimal(str(raw).strip().replace(',', '.'))
+        if v < 0:
+            v = Decimal('0')
+        if v > Decimal('999.99'):
+            v = Decimal('999.99')
+        return v
+    except (InvalidOperation, ValueError, TypeError):
+        return default
 
 
 def _bill_form_extra_context(bill=None):
@@ -105,6 +121,13 @@ def _validate_bill_invoice_prerequisites(client_id, agreement_id):
 
 def _save_bill_from_post(request, bill):
     with transaction.atomic():
+        tax_defaults = BillingTaxSettings.get_solo()
+        bill.vat_rate_percent = _parse_rate_percent(
+            request, 'vat_rate_percent', tax_defaults.vat_percent
+        )
+        bill.ait_rate_percent = _parse_rate_percent(
+            request, 'ait_rate_percent', tax_defaults.ait_percent
+        )
         bill.client_id = request.POST.get('client')
         bill.agreement_id = request.POST.get('agreement') or None
         inv_raw = request.POST.get('invoice_date')

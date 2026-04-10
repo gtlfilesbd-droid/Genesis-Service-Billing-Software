@@ -28,13 +28,13 @@ class BillingTaxSettings(models.Model):
         max_digits=6,
         decimal_places=2,
         default=10,
-        help_text='Percent of base amount, e.g. 10 for 10%.',
+        help_text='Default VAT % for new bills; each bill can use its own % on the bill form (0 if no VAT).',
     )
     ait_percent = models.DecimalField(
         max_digits=6,
         decimal_places=2,
         default=5,
-        help_text='Percent of base amount, e.g. 5 for 5%.',
+        help_text='Default AIT % for new bills; each bill can use its own % on the bill form (0 if no AIT).',
     )
 
     def save(self, *args, **kwargs):
@@ -252,11 +252,8 @@ class Bill(models.Model):
             base = Decimal('0')
         self.subtotal = base
         self.project_base_value = base
-        tax = BillingTaxSettings.get_solo()
-        vat_p = Decimal(str(tax.vat_percent))
-        ait_p = Decimal(str(tax.ait_percent))
-        self.vat_rate_percent = vat_p
-        self.ait_rate_percent = ait_p
+        vat_p = Decimal(str(self.vat_rate_percent or 0))
+        ait_p = Decimal(str(self.ait_rate_percent or 0))
         self.vat_amount = (base * vat_p / Decimal('100')).quantize(q, ROUND_HALF_UP)
         self.ait_amount = (base * ait_p / Decimal('100')).quantize(q, ROUND_HALF_UP)
         self.excluding_vat_ait = self.vat_amount + self.ait_amount

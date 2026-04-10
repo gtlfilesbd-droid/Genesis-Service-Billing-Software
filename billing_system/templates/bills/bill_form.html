@@ -239,7 +239,7 @@
     </div>
 </div>
 
-<!-- VAT & AIT — same card/grid style as Bank Information -->
+<!-- VAT & AIT — rates editable per bill; admin tax settings are defaults for new bills -->
 <div class="section-card form-grid-card">
     <div class="section-header"><i class="bi bi-percent"></i>VAT &amp; AIT Details</div>
     <div class="section-body">
@@ -255,8 +255,28 @@
                 </div>
             </div>
             <div class="col-md-6">
-                <label class="form-label" for="vatOut">VAT</label>
-                <p class="field-hint">{{ tax_vat_percent|floatformat:2 }}% of base (automatic)</p>
+                <label class="form-label" for="vatRateIn">VAT rate (%)</label>
+                <p class="field-hint">Default {{ tax_vat_percent|floatformat:2 }}% from admin — change here for this bill only (use 0 if no VAT).</p>
+                <div class="input-group">
+                    <input type="number" name="vat_rate_percent" id="vatRateIn" class="form-control" required
+                        step="0.01" min="0" max="999.99"
+                        value="{% if bill %}{{ bill.vat_rate_percent }}{% else %}{{ tax_vat_percent }}{% endif %}">
+                    <span class="input-group-text">%</span>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="aitRateIn">AIT rate (%)</label>
+                <p class="field-hint">Default {{ tax_ait_percent|floatformat:2 }}% from admin — change here for this bill only (use 0 if no AIT).</p>
+                <div class="input-group">
+                    <input type="number" name="ait_rate_percent" id="aitRateIn" class="form-control" required
+                        step="0.01" min="0" max="999.99"
+                        value="{% if bill %}{{ bill.ait_rate_percent }}{% else %}{{ tax_ait_percent }}{% endif %}">
+                    <span class="input-group-text">%</span>
+                </div>
+            </div>
+            <div class="col-md-6">
+                <label class="form-label" for="vatOut">VAT amount (BDT)</label>
+                <p class="field-hint">Base × VAT rate above (preview; saved value follows this on submit).</p>
                 <div class="input-group">
                     <span class="input-group-text">৳</span>
                     <input type="text" id="vatOut" class="form-control bg-light" readonly
@@ -265,8 +285,8 @@
                 </div>
             </div>
             <div class="col-md-6">
-                <label class="form-label" for="aitOut">AIT</label>
-                <p class="field-hint">{{ tax_ait_percent|floatformat:2 }}% of base (automatic)</p>
+                <label class="form-label" for="aitOut">AIT amount (BDT)</label>
+                <p class="field-hint">Base × AIT rate above (preview).</p>
                 <div class="input-group">
                     <span class="input-group-text">৳</span>
                     <input type="text" id="aitOut" class="form-control bg-light" readonly
@@ -456,8 +476,6 @@ const BILLING_PREVIEW_INVOICE_URL = "{% url 'preview_invoice_number' %}";
 const BILLING_AGREEMENTS_URL_TEMPLATE = "{% url 'get_client_agreements' 0 %}".replace(/\/0\//, '/__CID__/');
 const BILLING_AGREEMENT_SERVICES_URL_TEMPLATE = "{% url 'get_agreement_services' 0 %}".replace(/\/0\//, '/__AID__/');
 const BILLING_PREVIEW_BILL_PERIOD_URL = "{% url 'preview_bill_period' %}";
-const TAX_VAT_PERCENT = {{ tax_vat_percent }};
-const TAX_AIT_PERCENT = {{ tax_ait_percent }};
 
 (function initBillingBankProfileFill() {
     const el = document.getElementById('billing-banks-json');
@@ -594,12 +612,23 @@ function rowAmt(tr) {
     return a;
 }
 
+function billVatRatePercent() {
+    const el = document.getElementById('vatRateIn');
+    const v = parseFloat(el && el.value);
+    return Number.isFinite(v) && v >= 0 ? v : 0;
+}
+function billAitRatePercent() {
+    const el = document.getElementById('aitRateIn');
+    const v = parseFloat(el && el.value);
+    return Number.isFinite(v) && v >= 0 ? v : 0;
+}
+
 function recalc() {
     let subtotal = 0;
     document.querySelectorAll('#itemRows .item-row').forEach(tr => { subtotal += rowAmt(tr); });
     const base = subtotal;
-    const vat = Math.round(base * (TAX_VAT_PERCENT / 100) * 100) / 100;
-    const ait = Math.round(base * (TAX_AIT_PERCENT / 100) * 100) / 100;
+    const vat = Math.round(base * (billVatRatePercent() / 100) * 100) / 100;
+    const ait = Math.round(base * (billAitRatePercent() / 100) * 100) / 100;
     const totalVatAit = Math.round((vat + ait) * 100) / 100;
     const grand = Math.round((base + totalVatAit) * 100) / 100;
     const fmt = v => '৳' + v.toLocaleString('en-IN', {minimumFractionDigits:2});
@@ -624,6 +653,8 @@ function attachListeners(tr) {
 }
 
 document.querySelectorAll('#itemRows .item-row').forEach(attachListeners);
+document.getElementById('vatRateIn')?.addEventListener('input', recalc);
+document.getElementById('aitRateIn')?.addEventListener('input', recalc);
 
 // Auto-select from URL param
 const cp = new URLSearchParams(window.location.search).get('client');
