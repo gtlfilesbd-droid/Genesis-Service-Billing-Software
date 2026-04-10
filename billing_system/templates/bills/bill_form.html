@@ -299,7 +299,7 @@
         {% if not billing_banks %}
         <p class="alert alert-warning small py-2 mb-3 mb-md-4">No bank profiles yet — add at least one under <strong>Billing banks</strong> in Admin.</p>
         {% endif %}
-        <div class="row g-3 mb-3 mb-md-4">
+        <div class="row g-3 mb-2">
             <div class="col-md-8">
                 <label class="form-label" for="billingBankSelect">Bank profile</label>
                 <select name="billing_bank" id="billingBankSelect" class="form-select" {% if not billing_banks %}disabled{% endif %}>
@@ -308,19 +308,25 @@
                     <option value="{{ b.pk }}" {% if initial_billing_bank_id == b.pk %}selected{% endif %}>{{ b.label }}{% if b.is_default %} (default){% endif %}</option>
                     {% endfor %}
                 </select>
+                {% if billing_banks %}
+                <p class="field-hint mt-2 mb-0">Choose a profile to preview details below. On save, these values are copied onto this invoice (PDF/print).</p>
+                {% endif %}
             </div>
         </div>
         <div class="row g-3 g-md-4">
             <div class="col-md-6">
                 <label class="form-label">Bank Name</label>
-                <input type="text" id="bankPreviewName" class="form-control bg-light" readonly value="" placeholder="—">
+                <p class="field-hint">Legal or trading name of the bank (from the profile).</p>
+                <input type="text" id="bankPreviewName" class="form-control bg-light" readonly value="" placeholder="Select a bank profile above">
             </div>
             <div class="col-md-6">
                 <label class="form-label">Beneficiary</label>
-                <input type="text" id="bankPreviewBeneficiary" class="form-control bg-light" readonly value="" placeholder="—">
+                <p class="field-hint">Account name as it should appear on the invoice.</p>
+                <input type="text" id="bankPreviewBeneficiary" class="form-control bg-light" readonly value="" placeholder="Select a bank profile above">
             </div>
             <div class="col-12">
                 <label class="form-label">Bank Address</label>
+                <p class="field-hint">Branch name and two address lines from the profile (same layout as on the invoice).</p>
                 <div class="row g-2">
                     <div class="col-md-4">
                         <input type="text" id="bankPreviewBranch" class="form-control bg-light" readonly value="" placeholder="Branch">
@@ -335,25 +341,28 @@
             </div>
             <div class="col-md-4">
                 <label class="form-label">Account Number</label>
-                <input type="text" id="bankPreviewAccount" class="form-control bg-light" readonly value="" placeholder="—">
+                <p class="field-hint">Operating account for this profile.</p>
+                <input type="text" id="bankPreviewAccount" class="form-control bg-light" readonly value="" placeholder="Select a bank profile above">
             </div>
             <div class="col-md-4">
                 <label class="form-label">Swift Code</label>
-                <input type="text" id="bankPreviewSwift" class="form-control bg-light" readonly value="" placeholder="—">
+                <p class="field-hint">International bank identifier (if applicable).</p>
+                <input type="text" id="bankPreviewSwift" class="form-control bg-light" readonly value="" placeholder="Select a bank profile above">
             </div>
             <div class="col-md-4">
                 <label class="form-label">Branch Code (Routing)</label>
-                <input type="text" id="bankPreviewRouting" class="form-control bg-light" readonly value="" placeholder="—">
+                <p class="field-hint">Domestic routing / branch code.</p>
+                <input type="text" id="bankPreviewRouting" class="form-control bg-light" readonly value="" placeholder="Select a bank profile above">
             </div>
             <div class="col-md-6">
                 <label class="form-label">BIN</label>
                 <p class="field-hint">Business Identification No.</p>
-                <input type="text" id="bankPreviewBin" class="form-control bg-light" readonly value="" placeholder="—">
+                <input type="text" id="bankPreviewBin" class="form-control bg-light" readonly value="" placeholder="Select a bank profile above">
             </div>
             <div class="col-md-6">
                 <label class="form-label">TIN</label>
                 <p class="field-hint">Tax Identification No.</p>
-                <input type="text" id="bankPreviewTin" class="form-control bg-light" readonly value="" placeholder="—">
+                <input type="text" id="bankPreviewTin" class="form-control bg-light" readonly value="" placeholder="Select a bank profile above">
             </div>
         </div>
     </div>
