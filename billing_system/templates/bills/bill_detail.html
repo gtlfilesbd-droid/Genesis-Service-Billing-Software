@@ -136,11 +136,11 @@
                         <div class="fw-bold">৳{{ bill.project_base_value|floatformat:2 }}</div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <div class="text-muted">VAT (10%)</div>
+                        <div class="text-muted">VAT ({{ bill.vat_rate_percent|floatformat:2 }}%)</div>
                         <div class="fw-bold">৳{{ bill.vat_amount|floatformat:2 }}</div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <div class="text-muted">AIT (5%)</div>
+                        <div class="text-muted">AIT ({{ bill.ait_rate_percent|floatformat:2 }}%)</div>
                         <div class="fw-bold">৳{{ bill.ait_amount|floatformat:2 }}</div>
                     </div>
                     <div class="col-6 col-md-3">

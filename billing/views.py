@@ -7,7 +7,7 @@ from django.utils import timezone
 from django.db import transaction
 from django.db.models import Prefetch
 
-from .models import Bill, BillItem
+from .models import Bill, BillItem, BillingTaxSettings
 from .invoice_number import build_invoice_number_base
 from .bill_period import compute_bill_period_window, format_bill_period_line
 from clients.models import Client, Agreement, Service
@@ -15,6 +15,14 @@ from accounts.models import UserProfile
 from datetime import date, timedelta
 
 from django.utils.dateparse import parse_date
+
+
+def _bill_form_tax_context():
+    s = BillingTaxSettings.get_solo()
+    return {
+        'tax_vat_percent': float(s.vat_percent),
+        'tax_ait_percent': float(s.ait_percent),
+    }
 
 
 def get_profile(user):
@@ -121,6 +129,8 @@ def _save_bill_from_post(request, bill):
             update_fields=[
                 'subtotal',
                 'project_base_value',
+                'vat_rate_percent',
+                'ait_rate_percent',
                 'vat_amount',
                 'ait_amount',
                 'excluding_vat_ait',
@@ -182,12 +192,14 @@ def bill_create(request):
                 inv = bill.invoice_number or bill.bill_number
                 messages.success(request, f'Invoice {inv} created successfully.')
                 return redirect('bill_detail', pk=bill.pk)
-    return render(request, 'bills/bill_form.html', {
+    ctx = {
         'clients': clients, 'profile': profile,
         'today': date.today(),
         'status_choices': Bill._meta.get_field('status').choices,
         'action': 'Create',
-    })
+    }
+    ctx.update(_bill_form_tax_context())
+    return render(request, 'bills/bill_form.html', ctx)
 
 
 @login_required
@@ -217,22 +229,26 @@ def bill_edit(request, pk):
         )
         if not ok:
             messages.error(request, err)
-            return render(request, 'bills/bill_form.html', {
+            ctx = {
                 'bill': bill, 'clients': clients, 'profile': profile,
                 'today': date.today(),
                 'status_choices': Bill._meta.get_field('status').choices,
                 'action': 'Edit',
-            })
+            }
+            ctx.update(_bill_form_tax_context())
+            return render(request, 'bills/bill_form.html', ctx)
         _save_bill_from_post(request, bill)
         inv = bill.invoice_number or bill.bill_number
         messages.success(request, f'Invoice {inv} updated successfully.')
         return redirect('bill_detail', pk=pk)
-    return render(request, 'bills/bill_form.html', {
+    ctx = {
         'bill': bill, 'clients': clients, 'profile': profile,
         'today': date.today(),
         'status_choices': Bill._meta.get_field('status').choices,
         'action': 'Edit',
-    })
+    }
+    ctx.update(_bill_form_tax_context())
+    return render(request, 'bills/bill_form.html', ctx)
 
 
 @login_required
@@ -370,8 +386,8 @@ def bill_excel(request, pk):
         ws.append([])
         ws.append(['VAT & AIT Details']); ws[f'A{ws.max_row}'].font = bf
         ws.append(['Base Value (BDT):', '', '', '', '', float(bill.project_base_value)])
-        ws.append(['VAT (10%):', '', '', '', '', float(bill.vat_amount)])
-        ws.append(['AIT (5%):', '', '', '', '', float(bill.ait_amount)])
+        ws.append([f'VAT ({bill.vat_rate_percent}%):', '', '', '', '', float(bill.vat_amount)])
+        ws.append([f'AIT ({bill.ait_rate_percent}%):', '', '', '', '', float(bill.ait_amount)])
         ws.append(['Total VAT & AIT:', '', '', '', '', float(bill.excluding_vat_ait)])
         ws.append(['Total In BDT:', '', '', '', '', float(bill.total_in_bdt)])
         if bill.bank_name:

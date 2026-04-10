@@ -200,7 +200,7 @@
                 </div>
             </div>
             <div class="col-sm-6">
-                <label class="form-label">VAT <small class="text-muted fw-normal">(10% of base)</small></label>
+                <label class="form-label">VAT <small class="text-muted fw-normal">({{ tax_vat_percent|floatformat:2 }}% of base)</small></label>
                 <div class="input-group">
                     <span class="input-group-text bg-light">৳</span>
                     <input type="text" id="vatOut" class="form-control bg-light" readonly
@@ -208,7 +208,7 @@
                 </div>
             </div>
             <div class="col-sm-6">
-                <label class="form-label">AIT <small class="text-muted fw-normal">(5% of base)</small></label>
+                <label class="form-label">AIT <small class="text-muted fw-normal">({{ tax_ait_percent|floatformat:2 }}% of base)</small></label>
                 <div class="input-group">
                     <span class="input-group-text bg-light">৳</span>
                     <input type="text" id="aitOut" class="form-control bg-light" readonly
@@ -375,6 +375,8 @@ const BILLING_PREVIEW_INVOICE_URL = "{% url 'preview_invoice_number' %}";
 const BILLING_AGREEMENTS_URL_TEMPLATE = "{% url 'get_client_agreements' 0 %}".replace(/\/0\//, '/__CID__/');
 const BILLING_AGREEMENT_SERVICES_URL_TEMPLATE = "{% url 'get_agreement_services' 0 %}".replace(/\/0\//, '/__AID__/');
 const BILLING_PREVIEW_BILL_PERIOD_URL = "{% url 'preview_bill_period' %}";
+const TAX_VAT_PERCENT = {{ tax_vat_percent }};
+const TAX_AIT_PERCENT = {{ tax_ait_percent }};
 
 /** Create & Edit: invoice date = viewer's local "today" when the page opens (invoice # date segment follows). */
 function localDateYMD() {
@@ -480,8 +482,8 @@ function recalc() {
     let subtotal = 0;
     document.querySelectorAll('#itemRows .item-row').forEach(tr => { subtotal += rowAmt(tr); });
     const base = subtotal;
-    const vat = Math.round(base * 0.10 * 100) / 100;
-    const ait = Math.round(base * 0.05 * 100) / 100;
+    const vat = Math.round(base * (TAX_VAT_PERCENT / 100) * 100) / 100;
+    const ait = Math.round(base * (TAX_AIT_PERCENT / 100) * 100) / 100;
     const totalVatAit = Math.round((vat + ait) * 100) / 100;
     const grand = Math.round((base + totalVatAit) * 100) / 100;
     const fmt = v => '৳' + v.toLocaleString('en-IN', {minimumFractionDigits:2});

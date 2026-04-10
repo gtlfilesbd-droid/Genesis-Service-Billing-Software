@@ -17,6 +17,47 @@ BILL_STATUS_CHOICES = [
 ]
 
 
+class BillingTaxSettings(models.Model):
+    """Singleton (pk=1): global VAT % and AIT % of base. Edit in Django Admin."""
+
+    class Meta:
+        verbose_name = 'Billing tax rates'
+        verbose_name_plural = 'Billing tax rates'
+
+    vat_percent = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=10,
+        help_text='Percent of base amount, e.g. 10 for 10%.',
+    )
+    ait_percent = models.DecimalField(
+        max_digits=6,
+        decimal_places=2,
+        default=5,
+        help_text='Percent of base amount, e.g. 5 for 5%.',
+    )
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    def delete(self, using=None, keep_parents=False):
+        return
+
+    def __str__(self):
+        return f'VAT {self.vat_percent}%, AIT {self.ait_percent}%'
+
+    @classmethod
+    def get_solo(cls):
+        from decimal import Decimal
+
+        obj, _ = cls.objects.get_or_create(
+            pk=1,
+            defaults={'vat_percent': Decimal('10'), 'ait_percent': Decimal('5')},
+        )
+        return obj
+
+
 class Bill(models.Model):
     bill_number = models.CharField(max_length=50, unique=True, verbose_name='Bill Number')
     invoice_number = models.CharField(
@@ -42,11 +83,17 @@ class Bill(models.Model):
     # Financial fields (VAT/AIT derived from items subtotal in calculate_totals)
     project_value_yearly = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name='Project Value Yearly')
     project_base_value = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name='Base Value (BDT)')
-    vat_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name='VAT (10%)')
-    ait_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name='AIT (5%)')
+    vat_rate_percent = models.DecimalField(
+        max_digits=6, decimal_places=2, default=10, verbose_name='VAT rate applied (%)',
+    )
+    ait_rate_percent = models.DecimalField(
+        max_digits=6, decimal_places=2, default=5, verbose_name='AIT rate applied (%)',
+    )
+    vat_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name='VAT')
+    ait_amount = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name='AIT')
     excluding_vat_ait = models.DecimalField(
         max_digits=14, decimal_places=2, default=0, verbose_name='Total VAT & AIT',
-        help_text='VAT + AIT (15% of base)',
+        help_text='VAT + AIT',
     )
     total_in_bdt = models.DecimalField(max_digits=14, decimal_places=2, default=0, verbose_name='Total In BDT')
 
@@ -133,8 +180,13 @@ class Bill(models.Model):
             base = Decimal('0')
         self.subtotal = base
         self.project_base_value = base
-        self.vat_amount = (base * Decimal('0.10')).quantize(q, ROUND_HALF_UP)
-        self.ait_amount = (base * Decimal('0.05')).quantize(q, ROUND_HALF_UP)
+        tax = BillingTaxSettings.get_solo()
+        vat_p = Decimal(str(tax.vat_percent))
+        ait_p = Decimal(str(tax.ait_percent))
+        self.vat_rate_percent = vat_p
+        self.ait_rate_percent = ait_p
+        self.vat_amount = (base * vat_p / Decimal('100')).quantize(q, ROUND_HALF_UP)
+        self.ait_amount = (base * ait_p / Decimal('100')).quantize(q, ROUND_HALF_UP)
         self.excluding_vat_ait = self.vat_amount + self.ait_amount
         self.total_in_bdt = base + self.excluding_vat_ait
 
