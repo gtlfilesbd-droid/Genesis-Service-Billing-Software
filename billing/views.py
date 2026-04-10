@@ -54,7 +54,7 @@ def _bill_form_extra_context(bill=None):
     }
 
 
-def _apply_billing_bank_from_post(request, bill):
+def _set_billing_bank_fk_from_post(request, bill):
     raw = request.POST.get('billing_bank')
     bb = None
     if raw is not None and str(raw).strip() != '':
@@ -64,10 +64,20 @@ def _apply_billing_bank_from_post(request, bill):
     else:
         bb = BillingBank.get_default()
     bill.billing_bank = bb
-    if bb:
-        bb.copy_to_bill(bill)
-    else:
-        BillingBank.clear_bill_bank_fields(bill)
+
+
+def _apply_bank_fields_from_post(request, bill):
+    """Bank text fields come from the bill form (editable per invoice)."""
+    bill.bank_name = (request.POST.get('bank_name') or '').strip()
+    bill.beneficiary = (request.POST.get('beneficiary') or '').strip()
+    bill.bank_branch = (request.POST.get('bank_branch') or '').strip()
+    bill.bank_address_line1 = (request.POST.get('bank_address_line1') or '').strip()
+    bill.bank_address_line2 = (request.POST.get('bank_address_line2') or '').strip()
+    bill.account_number = (request.POST.get('account_number') or '').strip()
+    bill.swift_code = (request.POST.get('swift_code') or '').strip()
+    bill.branch_routing_code = (request.POST.get('branch_routing_code') or '').strip()
+    bill.bin_number = (request.POST.get('bin_number') or '').strip()
+    bill.tin_number = (request.POST.get('tin_number') or '').strip()
 
 
 def get_profile(user):
@@ -128,7 +138,8 @@ def _save_bill_from_post(request, bill):
         if 'project_value_yearly' in request.POST:
             bill.project_value_yearly = request.POST.get('project_value_yearly') or 0
         bill.remark = request.POST.get('remark', '')
-        _apply_billing_bank_from_post(request, bill)
+        _set_billing_bank_fk_from_post(request, bill)
+        _apply_bank_fields_from_post(request, bill)
         bill.status = request.POST.get('status', 'draft')
         if not bill.created_by_id:
             bill.created_by = request.user

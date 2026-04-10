@@ -291,78 +291,89 @@
     </div>
 </div>
 
-<!-- Bank profile -->
+<!-- Bank information: entered on this bill; optional saved profile fills the fields -->
 <div class="section-card form-grid-card">
     <div class="section-header"><i class="bi bi-bank2"></i>Bank Information</div>
     <div class="section-body">
         {{ billing_banks_payload|json_script:"billing-banks-json" }}
         {% if not billing_banks %}
-        <p class="alert alert-warning small py-2 mb-3 mb-md-4">No bank profiles yet — add at least one under <strong>Billing banks</strong> in Admin.</p>
+        <input type="hidden" name="billing_bank" value="">
+        <p class="alert alert-light border small py-2 mb-3 mb-md-4">No saved bank profiles — type details below, or add profiles under <strong>Admin → Billing banks</strong> to fill faster next time.</p>
         {% endif %}
         <div class="row g-3 mb-2">
             <div class="col-md-8">
-                <label class="form-label" for="billingBankSelect">Bank profile</label>
-                <select name="billing_bank" id="billingBankSelect" class="form-select" {% if not billing_banks %}disabled{% endif %}>
-                    <option value="">— Select bank —</option>
+                <label class="form-label" for="billingBankSelect">Fill from saved profile <span class="text-muted fw-normal">(optional)</span></label>
+                {% if billing_banks %}
+                <select name="billing_bank" id="billingBankSelect" class="form-select">
+                    <option value="">— None — type below manually</option>
                     {% for b in billing_banks %}
                     <option value="{{ b.pk }}" {% if initial_billing_bank_id == b.pk %}selected{% endif %}>{{ b.label }}{% if b.is_default %} (default){% endif %}</option>
                     {% endfor %}
                 </select>
-                {% if billing_banks %}
-                <p class="field-hint mt-2 mb-0">Choose a profile to preview details below. On save, these values are copied onto this invoice (PDF/print).</p>
+                <p class="field-hint mt-2 mb-0">Choosing a profile copies its details into the fields; you can edit anything before saving. What you save is what appears on this invoice.</p>
                 {% endif %}
             </div>
         </div>
         <div class="row g-3 g-md-4">
             <div class="col-md-6">
-                <label class="form-label">Bank Name</label>
-                <p class="field-hint">Legal or trading name of the bank (from the profile).</p>
-                <input type="text" id="bankPreviewName" class="form-control bg-light" readonly value="" placeholder="Select a bank profile above">
+                <label class="form-label" for="bank_name">Bank Name</label>
+                <p class="field-hint">As it should appear on this bill (PDF/print).</p>
+                <input type="text" name="bank_name" id="bankPreviewName" class="form-control" maxlength="255"
+                    value="{% if bill %}{{ bill.bank_name|default:'' }}{% endif %}" placeholder="e.g. Dutch-Bangla Bank Ltd.">
             </div>
             <div class="col-md-6">
-                <label class="form-label">Beneficiary</label>
-                <p class="field-hint">Account name as it should appear on the invoice.</p>
-                <input type="text" id="bankPreviewBeneficiary" class="form-control bg-light" readonly value="" placeholder="Select a bank profile above">
+                <label class="form-label" for="beneficiary">Beneficiary</label>
+                <p class="field-hint">Account / payee name on this invoice.</p>
+                <input type="text" name="beneficiary" id="bankPreviewBeneficiary" class="form-control" maxlength="255"
+                    value="{% if bill %}{{ bill.beneficiary|default:'' }}{% endif %}" placeholder="Account holder name">
             </div>
             <div class="col-12">
                 <label class="form-label">Bank Address</label>
-                <p class="field-hint">Branch name and two address lines from the profile (same layout as on the invoice).</p>
+                <p class="field-hint">Branch and address lines (same layout as on the invoice).</p>
                 <div class="row g-2">
                     <div class="col-md-4">
-                        <input type="text" id="bankPreviewBranch" class="form-control bg-light" readonly value="" placeholder="Branch">
+                        <input type="text" name="bank_branch" id="bankPreviewBranch" class="form-control" maxlength="255"
+                            value="{% if bill %}{{ bill.bank_branch|default:'' }}{% endif %}" placeholder="Branch">
                     </div>
                     <div class="col-md-4">
-                        <input type="text" id="bankPreviewAddr1" class="form-control bg-light" readonly value="" placeholder="Address Line 1">
+                        <input type="text" name="bank_address_line1" id="bankPreviewAddr1" class="form-control" maxlength="255"
+                            value="{% if bill %}{{ bill.bank_address_line1|default:'' }}{% endif %}" placeholder="Address Line 1">
                     </div>
                     <div class="col-md-4">
-                        <input type="text" id="bankPreviewAddr2" class="form-control bg-light" readonly value="" placeholder="Address Line 2">
+                        <input type="text" name="bank_address_line2" id="bankPreviewAddr2" class="form-control" maxlength="255"
+                            value="{% if bill %}{{ bill.bank_address_line2|default:'' }}{% endif %}" placeholder="Address Line 2">
                     </div>
                 </div>
             </div>
             <div class="col-md-4">
-                <label class="form-label">Account Number</label>
-                <p class="field-hint">Operating account for this profile.</p>
-                <input type="text" id="bankPreviewAccount" class="form-control bg-light" readonly value="" placeholder="Select a bank profile above">
+                <label class="form-label" for="account_number">Account Number</label>
+                <p class="field-hint">For payment reference on this bill.</p>
+                <input type="text" name="account_number" id="bankPreviewAccount" class="form-control" maxlength="100"
+                    value="{% if bill %}{{ bill.account_number|default:'' }}{% endif %}" placeholder="Account no.">
             </div>
             <div class="col-md-4">
-                <label class="form-label">Swift Code</label>
-                <p class="field-hint">International bank identifier (if applicable).</p>
-                <input type="text" id="bankPreviewSwift" class="form-control bg-light" readonly value="" placeholder="Select a bank profile above">
+                <label class="form-label" for="swift_code">Swift Code</label>
+                <p class="field-hint">If applicable for this payment.</p>
+                <input type="text" name="swift_code" id="bankPreviewSwift" class="form-control" maxlength="50"
+                    value="{% if bill %}{{ bill.swift_code|default:'' }}{% endif %}" placeholder="SWIFT / BIC">
             </div>
             <div class="col-md-4">
-                <label class="form-label">Branch Code (Routing)</label>
-                <p class="field-hint">Domestic routing / branch code.</p>
-                <input type="text" id="bankPreviewRouting" class="form-control bg-light" readonly value="" placeholder="Select a bank profile above">
+                <label class="form-label" for="branch_routing_code">Branch Code (Routing)</label>
+                <p class="field-hint">Routing / branch code.</p>
+                <input type="text" name="branch_routing_code" id="bankPreviewRouting" class="form-control" maxlength="100"
+                    value="{% if bill %}{{ bill.branch_routing_code|default:'' }}{% endif %}" placeholder="Routing no.">
             </div>
             <div class="col-md-6">
-                <label class="form-label">BIN</label>
+                <label class="form-label" for="bin_number">BIN</label>
                 <p class="field-hint">Business Identification No.</p>
-                <input type="text" id="bankPreviewBin" class="form-control bg-light" readonly value="" placeholder="Select a bank profile above">
+                <input type="text" name="bin_number" id="bankPreviewBin" class="form-control" maxlength="50"
+                    value="{% if bill %}{{ bill.bin_number|default:'' }}{% endif %}" placeholder="BIN">
             </div>
             <div class="col-md-6">
-                <label class="form-label">TIN</label>
+                <label class="form-label" for="tin_number">TIN</label>
                 <p class="field-hint">Tax Identification No.</p>
-                <input type="text" id="bankPreviewTin" class="form-control bg-light" readonly value="" placeholder="Select a bank profile above">
+                <input type="text" name="tin_number" id="bankPreviewTin" class="form-control" maxlength="50"
+                    value="{% if bill %}{{ bill.tin_number|default:'' }}{% endif %}" placeholder="TIN">
             </div>
         </div>
     </div>
@@ -448,7 +459,7 @@ const BILLING_PREVIEW_BILL_PERIOD_URL = "{% url 'preview_bill_period' %}";
 const TAX_VAT_PERCENT = {{ tax_vat_percent }};
 const TAX_AIT_PERCENT = {{ tax_ait_percent }};
 
-(function initBillingBankPreview() {
+(function initBillingBankProfileFill() {
     const el = document.getElementById('billing-banks-json');
     const sel = document.getElementById('billingBankSelect');
     if (!el || !sel) return;
@@ -478,7 +489,9 @@ const TAX_AIT_PERCENT = {{ tax_ait_percent }};
         });
     }
     sel.addEventListener('change', () => apply(sel.value));
-    apply(sel.value || (sel.options[sel.selectedIndex] && sel.options[sel.selectedIndex].value));
+    {% if action == 'Create' %}
+    apply(sel.value || '');
+    {% endif %}
 })();
 
 /** Create & Edit: invoice date = viewer's local "today" when the page opens (invoice # date segment follows). */
