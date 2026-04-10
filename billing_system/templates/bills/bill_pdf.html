@@ -49,6 +49,10 @@ body { font-family:'Arial',sans-serif; font-size:12.5px; color:#222; background:
 .items-tbl td { padding:9px 10px; }
 .items-tbl tfoot tr { background:#f0f4ff; }
 .items-tbl tfoot td { padding:8px 10px; font-weight:600; }
+.items-tbl td.desc-cell { vertical-align:middle; }
+.items-tbl td.mid-cell { vertical-align:middle; }
+.desc-stack .dline { border:1px solid #bdbdbd; padding:6px 8px; margin-bottom:6px; border-radius:4px; background:#fafafa; font-weight:600; line-height:1.35; }
+.desc-stack .dline:last-child { margin-bottom:0; }
 
 /* Financial summary */
 .fin-summary { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; background:#f8f9fa; padding:14px; border-radius:8px; margin-bottom:14px; }
@@ -145,12 +149,12 @@ body { font-family:'Arial',sans-serif; font-size:12.5px; color:#222; background:
         <tbody>
         {% for item in bill.items.all %}
         <tr>
-            <td>{{ forloop.counter }}</td>
-            <td style="font-weight:600;">{{ item.description }}</td>
-            <td style="text-align:center;">{{ item.quantity }}</td>
-            <td style="text-align:center;color:#666;">{{ item.unit|default:"—" }}</td>
-            <td style="text-align:right;">৳{{ item.unit_price|floatformat:2 }}</td>
-            <td style="text-align:right;font-weight:700;">৳{{ item.amount|floatformat:2 }}</td>
+            <td class="mid-cell">{{ forloop.counter }}</td>
+            <td class="desc-cell"><div class="desc-stack">{% for line in item.description_lines %}<div class="dline">{{ line }}</div>{% endfor %}</div></td>
+            <td class="mid-cell" style="text-align:center;">{{ item.quantity }}</td>
+            <td class="mid-cell" style="text-align:center;color:#666;">{{ item.unit|default:"—" }}</td>
+            <td class="mid-cell" style="text-align:right;">৳{{ item.unit_price|floatformat:2 }}</td>
+            <td class="mid-cell" style="text-align:right;font-weight:700;">৳{{ item.amount|floatformat:2 }}</td>
         </tr>
         {% endfor %}
         </tbody>

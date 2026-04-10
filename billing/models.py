@@ -289,3 +289,12 @@ class BillItem(models.Model):
         price = Decimal(str(self.unit_price or 0))
         self.amount = qty * price
         super().save(*args, **kwargs)
+
+    @property
+    def description_lines(self):
+        """Non-empty lines for display (bill detail / PDF); single line if no newlines."""
+        text = (self.description or '').strip()
+        if not text:
+            return []
+        lines = [ln.strip() for ln in self.description.splitlines() if ln.strip()]
+        return lines if lines else [text]
