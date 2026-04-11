@@ -80,7 +80,9 @@
                         <div class="d-flex gap-1 flex-wrap">
                             <a href="{% url 'bill_detail' bill.pk %}" class="btn btn-sm btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>
                             {% if profile.can_edit_bill or request.user.is_superuser %}
+                            {% if bill.status == 'pending' %}
                             <a href="{% url 'bill_edit' bill.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
+                            {% endif %}
                             {% endif %}
                             {% if profile.can_delete_bill or request.user.is_superuser %}
                             <form method="post" action="{% url 'bill_delete' bill.pk %}" class="d-inline"

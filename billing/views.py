@@ -364,6 +364,12 @@ def bill_edit(request, pk):
     if not profile.can_edit_bill and not request.user.is_superuser:
         messages.error(request, 'You do not have permission to edit bills.')
         return redirect('bill_detail', pk=pk)
+    if bill.status in ('submitted', 'paid'):
+        messages.error(
+            request,
+            'This invoice cannot be edited after it has been submitted to the client or marked paid.',
+        )
+        return redirect('bill_detail', pk=pk)
     clients = Client.objects.filter(is_active=True)
     if request.method == 'POST':
         if not request.POST.get('agreement'):
