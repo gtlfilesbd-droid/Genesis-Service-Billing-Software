@@ -133,13 +133,22 @@
                         <i class="bi bi-file-excel me-2"></i>Export All Bills — Excel (.xlsx)
                     </a>
                     <a href="{% url 'export_bills_csv' %}?status=paid" class="btn btn-outline-primary">
-                        <i class="bi bi-check-circle me-2"></i>Export Paid Bills Only
+                        <i class="bi bi-check-circle me-2"></i>Export Paid Bills — CSV
+                    </a>
+                    <a href="{% url 'export_bills_excel' %}?status=paid" class="btn btn-outline-primary">
+                        <i class="bi bi-check-circle me-2"></i>Export Paid Bills — Excel
                     </a>
                     <a href="{% url 'export_bills_csv' %}?status=submitted" class="btn btn-outline-primary">
-                        <i class="bi bi-send-check me-2"></i>Export Submitted Bills
+                        <i class="bi bi-send-check me-2"></i>Export Submitted — CSV
+                    </a>
+                    <a href="{% url 'export_bills_excel' %}?status=submitted" class="btn btn-outline-primary">
+                        <i class="bi bi-send-check me-2"></i>Export Submitted — Excel
                     </a>
                     <a href="{% url 'export_bills_csv' %}?status=pending" class="btn btn-outline-warning">
-                        <i class="bi bi-hourglass-split me-2"></i>Export Pending Bills
+                        <i class="bi bi-hourglass-split me-2"></i>Export Pending — CSV
+                    </a>
+                    <a href="{% url 'export_bills_excel' %}?status=pending" class="btn btn-outline-warning">
+                        <i class="bi bi-hourglass-split me-2"></i>Export Pending — Excel
                     </a>
                 </div>
                 {% else %}
