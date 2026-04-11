@@ -12,19 +12,43 @@ body { font-family:'Arial',sans-serif; font-size:10.5px; color:#000; background:
 
 /* Letterhead: leave space for pre-printed header/footer */
 body.letterhead .page {
-    padding-top:40px;
+    padding-top:56px;
     padding-bottom:48px;
 }
 
-.pad-header { width:100%; margin-bottom:12px; display:block; }
-.pad-header img { width:100%; display:block; }
-/* Extra gap so “INVOICE” does not crowd / overlap the pad graphic */
-.pad-header + .inv-header { margin-top:16px; }
-.inv-header { display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; margin-top:6px; }
-body.letterhead .inv-header { margin-top:12px; }
-.inv-title { text-align:right; }
-.inv-title h2 { font-size:19px; color:#000; font-weight:700; letter-spacing:1.5px; }
-.inv-title .num { font-size:10.5px; color:#333; }
+.pad-header {
+    width:100%;
+    margin-bottom:0;
+    padding-bottom:14px;
+    display:block;
+}
+.pad-header img {
+    width:100%;
+    max-width:100%;
+    height:auto;
+    display:block;
+}
+/* Clear gap under logo so INVOICE does not sit on the graphic */
+.pad-header + .inv-header { margin-top:48px; }
+.inv-header {
+    display:block;
+    width:100%;
+    margin-bottom:12px;
+    margin-top:12px;
+}
+body.letterhead .inv-header { margin-top:28px; }
+/* Left edge lines up with .divider and rest of content */
+.inv-title { text-align:left; width:100%; }
+/* Slightly smaller pair; number line ~62% of title (ratio) */
+.inv-title h2 {
+    font-size:16px;
+    color:#000;
+    font-weight:700;
+    letter-spacing:1.2px;
+    margin-bottom:2px;
+    line-height:1.2;
+}
+.inv-title .num { font-size:10px; color:#333; font-weight:600; letter-spacing:0.03em; line-height:1.3; }
 
 .divider { height:0; border:none; border-top:1px solid #000; margin:9px 0; }
 
@@ -155,16 +179,17 @@ body.letterhead .inv-header { margin-top:12px; }
     }
     /* Room for pre-printed letterhead / pad art so title does not overlap */
     body.letterhead .page {
-        padding-top:9mm;
+        padding-top:16mm;
         padding-bottom:5mm;
         padding-left:7mm;
         padding-right:7mm;
         max-width:none;
     }
-    .pad-header { margin-bottom:4mm; }
-    .pad-header + .inv-header { margin-top:5mm; }
-    body.letterhead .inv-header { margin-top:4mm; }
-    .inv-title h2 { font-size:16px; }
+    .pad-header { padding-bottom:4mm; margin-bottom:0; }
+    .pad-header + .inv-header { margin-top:12mm; }
+    body.letterhead .inv-header { margin-top:8mm; }
+    .inv-title h2 { font-size:16px; letter-spacing:1.2px; }
+    .inv-title .num { font-size:10px; }
     .sig-spacer { height:15mm; min-height:15mm; }
     .items-tbl tr { page-break-inside:avoid; }
     .items-tbl thead { display:table-header-group; }
@@ -190,7 +215,6 @@ body.letterhead .inv-header { margin-top:12px; }
 
     <!-- Invoice Title -->
     <div class="inv-header">
-        <div></div>
         <div class="inv-title">
             <h2>INVOICE</h2>
             <div class="num">{{ bill.invoice_number|default:bill.bill_number }}</div>
