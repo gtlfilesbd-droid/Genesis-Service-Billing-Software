@@ -1,83 +1,181 @@
 {% extends 'base.html' %}
 {% block title %}Bills{% endblock %}
-{% block page_title %}Bills{% endblock %}
+{% block page_title %}Bills & Invoices{% endblock %}
+
+{% block extra_css %}
+<style>
+.bill-list-hero {
+    background: linear-gradient(135deg, #0d47a1 0%, #1565C0 45%, #1976D2 100%);
+    border-radius: 14px;
+    padding: 1.35rem 1.5rem;
+    color: #fff;
+    box-shadow: 0 8px 24px rgba(21, 101, 192, 0.28);
+}
+.bill-list-hero h4 { color: #fff; letter-spacing: -0.02em; }
+.bill-list-hero .sub { opacity: 0.88; font-size: 0.8rem; line-height: 1.35; max-width: 36rem; }
+.bill-list-hero .bill-list-hero-stats { flex-shrink: 0; }
+.bill-stat-pill {
+    background: rgba(255,255,255,0.14);
+    border: 1px solid rgba(255,255,255,0.22);
+    border-radius: 10px;
+    padding: 0.5rem 0.85rem;
+    text-align: center;
+    min-width: 72px;
+}
+.bill-stat-pill .n { font-size: 1.25rem; font-weight: 700; line-height: 1.2; }
+.bill-stat-pill .l { font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.06em; opacity: 0.9; }
+.bill-stat-pill .l.l-title { text-transform: none; letter-spacing: 0.03em; }
+.bill-filter-card {
+    border: none;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+}
+.bill-filter-card .form-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #546e7a; margin-bottom: 0.25rem; }
+.bills-table-wrap { border-radius: 0 0 12px 12px; overflow: hidden; }
+.bills-table thead th {
+    background: #e3f2fd;
+    color: #0d47a1;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-bottom: 2px solid #90caf9 !important;
+    padding-top: 0.85rem;
+    padding-bottom: 0.85rem;
+    white-space: nowrap;
+}
+.bills-table tbody td { vertical-align: middle; padding-top: 0.75rem; padding-bottom: 0.75rem; }
+.bills-table tbody tr { border-color: #eceff1; }
+.bills-table tbody tr:hover { background: #fafcff; }
+.bills-table .inv-ref { font-size: 0.68rem; color: #78909c; }
+.bills-table .amt { font-variant-numeric: tabular-nums; }
+.bill-list-toolbar {
+    background: #f8fafc;
+    border-bottom: 1px solid #e9ecef;
+    padding: 0.65rem 1rem;
+    font-size: 0.8rem;
+    color: #546e7a;
+}
+</style>
+{% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-4">
-    <div>
-        <h4 class="fw-bold mb-1">Bills & Invoices</h4>
-        <p class="text-muted small mb-0">Manage all billing records</p>
+<div class="bill-list-hero mb-4 d-flex flex-column flex-lg-row justify-content-between align-items-start align-items-lg-center gap-3">
+    <div class="flex-grow-1 min-w-0" title="Invoice year &amp; month are in the form below. The first total is all bills matching your filters.">
+        <h4 class="fw-bold mb-1">Bills &amp; Invoices</h4>
+        <p class="sub mb-0">Year/month below. First count = bills matching all filters.</p>
     </div>
-    {% if profile.can_generate_bill or request.user.is_superuser %}
-    <a href="{% url 'bill_create' %}" class="btn btn-primary"><i class="bi bi-plus-lg me-2"></i>New Bill</a>
-    {% endif %}
+    <div class="bill-list-hero-stats d-flex flex-wrap align-items-center gap-2">
+        <div class="bill-stat-pill" title="Count after search, status, client, and invoice year/month filters">
+            <div class="n">{{ list_stats.total }}</div>
+            <div class="l l-title">Bills</div>
+        </div>
+        <div class="bill-stat-pill"><div class="n">{{ list_stats.pending }}</div><div class="l">Pending</div></div>
+        <div class="bill-stat-pill"><div class="n">{{ list_stats.submitted }}</div><div class="l">Submitted</div></div>
+        <div class="bill-stat-pill"><div class="n">{{ list_stats.paid }}</div><div class="l">Paid</div></div>
+        {% if profile.can_generate_bill or request.user.is_superuser %}
+        <a href="{% url 'bill_create' %}" class="btn btn-light fw-semibold ms-md-2"><i class="bi bi-plus-lg me-1"></i>New Bill</a>
+        {% endif %}
+    </div>
 </div>
 
-<!-- Filters -->
-<div class="card form-card mb-4 p-3">
-    <form method="get" class="row g-2 align-items-end">
-        <div class="col-md-4">
-            <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Invoice #, bill ref, or client name...">
-        </div>
-        <div class="col-md-3">
-            <select name="status" class="form-select">
-                <option value="">All Status</option>
-                {% for val, label in status_choices %}
-                <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-md-3">
-            <select name="client" class="form-select">
-                <option value="">All Clients</option>
-                {% for c in clients %}
-                <option value="{{ c.pk }}" {% if client_filter == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
-                {% endfor %}
-            </select>
-        </div>
-        <div class="col-auto d-flex gap-1">
-            <button type="submit" class="btn btn-primary"><i class="bi bi-funnel me-1"></i>Filter</button>
-            <a href="{% url 'bill_list' %}" class="btn btn-outline-secondary">Reset</a>
-        </div>
-    </form>
+<div class="card bill-filter-card mb-3">
+    <div class="card-body p-3 p-md-4">
+        <form method="get" class="row g-3 align-items-end">
+            <div class="col-xl-3 col-lg-4 col-md-6">
+                <label class="form-label">Search</label>
+                <input type="text" name="search" value="{{ search }}" class="form-control" placeholder="Invoice #, bill ref, client…">
+            </div>
+            <div class="col-6 col-lg-2 col-md-3">
+                <label class="form-label">Status</label>
+                <select name="status" class="form-select">
+                    <option value="">All</option>
+                    {% for val, label in status_choices %}
+                    <option value="{{ val }}" {% if status_filter == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-xl-3 col-lg-4 col-md-6">
+                <label class="form-label">Client</label>
+                <select name="client" class="form-select">
+                    <option value="">All clients</option>
+                    {% for c in clients %}
+                    <option value="{{ c.pk }}" {% if client_filter == c.pk|stringformat:"s" %}selected{% endif %}>{{ c.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <label class="form-label">Invoice year</label>
+                <select name="inv_year" class="form-select">
+                    <option value="">Any year</option>
+                    {% for y in invoice_year_choices %}
+                    <option value="{{ y }}" {% if inv_year == y|stringformat:"d" %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-6 col-md-3 col-lg-2">
+                <label class="form-label">Invoice month</label>
+                <select name="inv_month" class="form-select">
+                    <option value="">Any month</option>
+                    {% for val, label in month_choices %}
+                    <option value="{{ val }}" {% if inv_month == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-12 col-lg-auto d-flex flex-wrap gap-2">
+                <button type="submit" class="btn btn-primary px-4"><i class="bi bi-funnel me-1"></i>Apply</button>
+                <a href="{% url 'bill_list' %}" class="btn btn-outline-secondary">Reset</a>
+            </div>
+        </form>
+    </div>
 </div>
 
-<div class="card table-card">
-    <div class="card-body p-0">
+<div class="card table-card border-0 shadow-sm overflow-hidden">
+    <div class="bill-list-toolbar d-flex justify-content-between align-items-center flex-wrap gap-2">
+        <span><i class="bi bi-table me-1 text-primary"></i>{% if list_stats.total %}Showing <strong>{{ bills.start_index }}–{{ bills.end_index }}</strong> of <strong>{{ list_stats.total }}</strong>{% else %}No bills for these filters{% endif %}</span>
+        <span class="text-muted">Sorted by invoice date (newest first)</span>
+    </div>
+    <div class="bills-table-wrap">
         <div class="table-responsive">
-            <table class="table table-hover mb-0">
+            <table class="table table-hover mb-0 bills-table">
                 <thead>
                     <tr>
-                        <th class="ps-3">Invoice #</th>
+                        <th class="ps-3">Invoice</th>
                         <th>Client</th>
-                        <th>Bill Date</th>
-                        <th>Due Date</th>
-                        <th>Period</th>
-                        <th>Amount</th>
+                        <th>Inv. date</th>
+                        <th class="d-none d-lg-table-cell">PO date</th>
+                        <th class="d-none d-xl-table-cell">Period</th>
+                        <th class="text-end pe-2">Amount</th>
                         <th>Status</th>
-                        <th>Actions</th>
+                        <th class="text-end pe-3" style="min-width:9rem;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
                 {% for bill in bills %}
                 <tr>
                     <td class="ps-3">
-                        <a href="{% url 'bill_detail' bill.pk %}" class="fw-bold text-primary text-decoration-none">{{ bill.invoice_number|default:bill.bill_number }}</a>
-                        {% if bill.invoice_number %}<div class="text-muted small" style="font-size:0.7rem;">{{ bill.bill_number }}</div>{% endif %}
+                        <a href="{% url 'bill_detail' bill.pk %}" class="fw-semibold text-primary text-decoration-none">{{ bill.invoice_number|default:bill.bill_number }}</a>
+                        {% if bill.invoice_number %}<div class="inv-ref">{{ bill.bill_number }}</div>{% endif %}
                     </td>
                     <td>
-                        <a href="{% url 'client_detail' bill.client.pk %}" class="text-decoration-none text-dark">{{ bill.client.name }}</a>
-                        {% if bill.client.company %}<div class="text-muted small">{{ bill.client.company }}</div>{% endif %}
+                        <a href="{% url 'client_detail' bill.client.pk %}" class="text-decoration-none text-dark fw-medium">{{ bill.client.name }}</a>
+                        {% if bill.client.company %}<div class="small text-muted text-truncate" style="max-width:14rem;">{{ bill.client.company }}</div>{% endif %}
                     </td>
-                    <td class="small">{{ bill.invoice_date }}</td>
-                    <td class="small {% if bill.is_overdue %}text-danger fw-semibold{% endif %}">{{ bill.po_date|default:"—" }}</td>
-                    <td class="small text-muted">{{ bill.bill_period|default:"—" }}</td>
-                    <td class="fw-bold">৳{{ bill.total_in_bdt|floatformat:0 }}</td>
+                    <td class="small text-nowrap">{{ bill.invoice_date|date:"d M Y" }}</td>
+                    <td class="small text-nowrap d-none d-lg-table-cell {% if bill.is_overdue %}text-danger fw-semibold{% else %}text-muted{% endif %}">{{ bill.po_date|date:"d M Y"|default:"—" }}</td>
+                    <td class="small text-muted d-none d-xl-table-cell">
+                        {% if bill.bill_period_from and bill.bill_period_to %}
+                        <span class="text-nowrap">{{ bill.bill_period_from|date:"d M" }} – {{ bill.bill_period_to|date:"d M y" }}</span>
+                        {% else %}
+                        {{ bill.bill_period|default:"—"|truncatechars:28 }}
+                        {% endif %}
+                    </td>
+                    <td class="text-end fw-semibold amt text-nowrap pe-2">৳{{ bill.total_in_bdt|floatformat:0 }}</td>
                     <td>
                         <span class="badge badge-{{ bill.status }} px-2 py-1 rounded-pill">{{ bill.get_status_display }}</span>
                     </td>
-                    <td>
-                        <div class="d-flex gap-1 flex-wrap">
+                    <td class="text-end pe-3">
+                        <div class="d-inline-flex gap-1 flex-wrap justify-content-end">
                             <a href="{% url 'bill_detail' bill.pk %}" class="btn btn-sm btn-outline-primary" title="View"><i class="bi bi-eye"></i></a>
                             {% if profile.can_edit_bill or request.user.is_superuser %}
                             {% if bill.status == 'pending' %}
@@ -91,16 +189,17 @@
                                 <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete"><i class="bi bi-trash3"></i></button>
                             </form>
                             {% endif %}
-                            <a href="{% url 'bill_print' bill.pk %}" class="btn btn-sm btn-outline-dark" title="Print" target="_blank"><i class="bi bi-printer"></i></a>
+                            <a href="{% url 'bill_print' bill.pk %}" class="btn btn-sm btn-outline-dark d-none d-sm-inline-block" title="Print" target="_blank"><i class="bi bi-printer"></i></a>
                             <a href="{% url 'bill_pdf' bill.pk %}" class="btn btn-sm btn-outline-danger" title="PDF"><i class="bi bi-file-pdf"></i></a>
-                            <a href="{% url 'bill_excel' bill.pk %}" class="btn btn-sm btn-outline-success" title="Excel"><i class="bi bi-file-excel"></i></a>
+                            <a href="{% url 'bill_excel' bill.pk %}" class="btn btn-sm btn-outline-success d-none d-md-inline-block" title="Excel"><i class="bi bi-file-excel"></i></a>
                         </div>
                     </td>
                 </tr>
                 {% empty %}
                 <tr><td colspan="8" class="text-center text-muted py-5">
-                    <i class="bi bi-file-earmark-x display-6 d-block mb-2 opacity-25"></i>
-                    No bills found
+                    <i class="bi bi-inbox display-6 d-block mb-2 opacity-25"></i>
+                    <div class="fw-semibold">No bills match your filters</div>
+                    <div class="small">Try clearing search or status, or create a new bill.</div>
                 </td></tr>
                 {% endfor %}
                 </tbody>
@@ -109,15 +208,27 @@
     </div>
 
     {% if bills.has_other_pages %}
-    <div class="card-footer bg-white border-0 d-flex justify-content-between">
+    <div class="card-footer bg-white border-top py-3 d-flex flex-wrap justify-content-between align-items-center gap-2">
         <small class="text-muted">Page {{ bills.number }} of {{ bills.paginator.num_pages }}</small>
-        <nav><ul class="pagination pagination-sm mb-0">
-            {% if bills.has_previous %}<li class="page-item"><a class="page-link" href="?page={{ bills.previous_page_number }}">«</a></li>{% endif %}
+        <nav>
+            <ul class="pagination pagination-sm mb-0">
+            {% if bills.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ bills.previous_page_number }}" aria-label="Previous">«</a>
+            </li>
+            {% endif %}
             {% for num in bills.paginator.page_range %}
-            <li class="page-item {% if bills.number == num %}active{% endif %}"><a class="page-link" href="?page={{ num }}">{{ num }}</a></li>
+            <li class="page-item {% if bills.number == num %}active{% endif %}">
+                <a class="page-link" href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ num }}">{{ num }}</a>
+            </li>
             {% endfor %}
-            {% if bills.has_next %}<li class="page-item"><a class="page-link" href="?page={{ bills.next_page_number }}">»</a></li>{% endif %}
-        </ul></nav>
+            {% if bills.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?{% if filter_query %}{{ filter_query }}&amp;{% endif %}page={{ bills.next_page_number }}">»</a>
+            </li>
+            {% endif %}
+            </ul>
+        </nav>
     </div>
     {% endif %}
 </div>

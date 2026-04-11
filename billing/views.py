@@ -5,7 +5,7 @@ from django.http import HttpResponse, JsonResponse
 from django.core.paginator import Paginator
 from django.utils import timezone
 from django.db import transaction
-from django.db.models import Prefetch
+from django.db.models import Prefetch, Q
 
 from .models import Bill, BillItem, BillingBank, BillingTaxSettings
 from .invoice_number import build_invoice_number_base
@@ -288,25 +288,63 @@ def bill_list(request):
     status_filter = request.GET.get('status', '')
     client_filter = request.GET.get('client', '')
     search = request.GET.get('search', '')
+    inv_year = request.GET.get('inv_year', '').strip()
+    inv_month = request.GET.get('inv_month', '').strip()
     if status_filter:
         bills = bills.filter(status=status_filter)
     if client_filter:
         bills = bills.filter(client_id=client_filter)
     if search:
-        bills = bills.filter(bill_number__icontains=search) | bills.filter(
-            client__name__icontains=search
-        ) | bills.filter(invoice_number__icontains=search)
-    paginator = Paginator(bills, 10)
+        bills = bills.filter(
+            Q(bill_number__icontains=search)
+            | Q(client__name__icontains=search)
+            | Q(invoice_number__icontains=search)
+        )
+    if inv_year.isdigit():
+        bills = bills.filter(invoice_date__year=int(inv_year))
+    if inv_month.isdigit():
+        m = int(inv_month)
+        if 1 <= m <= 12:
+            bills = bills.filter(invoice_date__month=m)
+
+    filtered_total = bills.count()
+    list_stats = {
+        'total': filtered_total,
+        'pending': bills.filter(status='pending').count(),
+        'submitted': bills.filter(status='submitted').count(),
+        'paid': bills.filter(status='paid').count(),
+    }
+
+    paginator = Paginator(bills.order_by('-invoice_date', '-id'), 15)
     bills_page = paginator.get_page(request.GET.get('page'))
     profile = get_profile(request.user)
+
+    q = request.GET.copy()
+    q.pop('page', None)
+    filter_query = q.urlencode()
+
+    year_rows = Bill.objects.exclude(invoice_date__isnull=True).dates(
+        'invoice_date', 'year', order='DESC'
+    )
+    invoice_year_choices = [d.year for d in year_rows]
+    if not invoice_year_choices:
+        invoice_year_choices = [date.today().year]
+    month_choices = [(str(i), calendar.month_name[i]) for i in range(1, 13)]
+
     return render(request, 'bills/bill_list.html', {
         'bills': bills_page,
         'clients': Client.objects.filter(is_active=True),
         'status_filter': status_filter,
         'client_filter': client_filter,
         'search': search,
+        'inv_year': inv_year,
+        'inv_month': inv_month,
+        'invoice_year_choices': invoice_year_choices,
+        'month_choices': month_choices,
         'profile': profile,
         'status_choices': Bill._meta.get_field('status').choices,
+        'list_stats': list_stats,
+        'filter_query': filter_query,
     })
 
 
