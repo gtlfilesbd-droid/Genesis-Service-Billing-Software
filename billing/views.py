@@ -508,21 +508,47 @@ def get_agreement_services(request, agreement_id):
 
 @login_required
 def bill_pdf(request, pk):
+    from io import BytesIO
+
     from django.template.loader import render_to_string
+
+    bill = get_object_or_404(Bill, pk=pk)
+    base_url = request.build_absolute_uri('/')
+    html_string = render_to_string(
+        'bills/bill_pdf.html', {'bill': bill, 'letterhead_print': True}
+    )
+
+    pdf_bytes = None
     try:
         import weasyprint
-        bill = get_object_or_404(Bill, pk=pk)
-        html_string = render_to_string(
-            'bills/bill_pdf.html', {'bill': bill, 'letterhead_print': True}
+
+        pdf_bytes = weasyprint.HTML(string=html_string, base_url=base_url).write_pdf()
+    except (ImportError, OSError):
+        pass
+
+    if pdf_bytes is None:
+        try:
+            from xhtml2pdf import pisa
+
+            out = BytesIO()
+            doc = pisa.CreatePDF(html_string, dest=out, encoding='utf-8')
+            if not doc.err:
+                pdf_bytes = out.getvalue()
+        except ImportError:
+            pass
+
+    if pdf_bytes is None:
+        messages.error(
+            request,
+            'PDF engine not available. Run: pip install xhtml2pdf '
+            '(or install WeasyPrint with GTK on Windows — see WeasyPrint docs).',
         )
-        pdf_file = weasyprint.HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
-        response = HttpResponse(pdf_file, content_type='application/pdf')
-        fname = (bill.invoice_number or bill.bill_number).replace('/', '-')
-        response['Content-Disposition'] = f'attachment; filename="Invoice-{fname}.pdf"'
-        return response
-    except ImportError:
-        messages.error(request, 'WeasyPrint is not installed.')
         return redirect('bill_detail', pk=pk)
+
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    fname = (bill.invoice_number or bill.bill_number).replace('/', '-')
+    response['Content-Disposition'] = f'attachment; filename="Invoice-{fname}.pdf"'
+    return response
 
 
 @login_required
