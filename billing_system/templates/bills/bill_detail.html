@@ -218,12 +218,11 @@
                 <div class="row g-2 small bank-fields-box">
                     {% if bill.bank_name %}<div class="col-md-6"><span class="text-muted">Bank Name:</span> <strong>{{ bill.bank_name }}</strong></div>{% endif %}
                     {% if bill.beneficiary %}<div class="col-md-6"><span class="text-muted">Beneficiary:</span> <strong>{{ bill.beneficiary }}</strong></div>{% endif %}
-                    {% if bill.bank_branch or bill.bank_address_line1 %}
+                    {% if bill.bank_branch %}<div class="col-md-6"><span class="text-muted">Branch:</span> <strong>{{ bill.bank_branch }}</strong></div>{% endif %}
+                    {% if bill.bank_address_line1 or bill.bank_address_line2 %}
                     <div class="col-12">
                         <span class="text-muted">Address:</span>
-                        {% if bill.bank_branch %}<strong>{{ bill.bank_branch }}</strong>{% endif %}
-                        {% if bill.bank_address_line1 %}, {{ bill.bank_address_line1 }}{% endif %}
-                        {% if bill.bank_address_line2 %}, {{ bill.bank_address_line2 }}{% endif %}
+                        <strong>{% if bill.bank_address_line1 %}{{ bill.bank_address_line1 }}{% endif %}{% if bill.bank_address_line1 and bill.bank_address_line2 %}, {% endif %}{% if bill.bank_address_line2 %}{{ bill.bank_address_line2 }}{% endif %}</strong>
                     </div>
                     {% endif %}
                     {% if bill.account_number %}<div class="col-md-4"><span class="text-muted">Account No:</span> <strong>{{ bill.account_number }}</strong></div>{% endif %}

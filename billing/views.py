@@ -626,8 +626,13 @@ def bill_excel(request, pk):
             ws.append(['Bank Name:', bill.bank_name])
             ws.append(['Beneficiary:', bill.beneficiary or ''])
             ws.append(['Branch:', bill.bank_branch or ''])
-            ws.append(['Address Line 1:', bill.bank_address_line1 or ''])
-            ws.append(['Address Line 2:', bill.bank_address_line2 or ''])
+            _addr_bits = [
+                (bill.bank_address_line1 or '').strip(),
+                (bill.bank_address_line2 or '').strip(),
+            ]
+            _addr = ', '.join(x for x in _addr_bits if x)
+            if _addr:
+                ws.append(['Address:', _addr])
             ws.append(['Account No:', bill.account_number or ''])
             ws.append(['Swift Code:', bill.swift_code or ''])
             ws.append(['Branch Code (Routing):', bill.branch_routing_code or ''])

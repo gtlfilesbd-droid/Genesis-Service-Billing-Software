@@ -257,11 +257,8 @@ body.letterhead .page {
             {% if bill.bank_branch %}
             <div class="bank-row"><span class="bank-key">Branch</span><span class="bank-val">{{ bill.bank_branch }}</span></div>
             {% endif %}
-            {% if bill.bank_address_line1 %}
-            <div class="bank-row"><span class="bank-key">Address 1</span><span class="bank-val">{{ bill.bank_address_line1 }}</span></div>
-            {% endif %}
-            {% if bill.bank_address_line2 %}
-            <div class="bank-row"><span class="bank-key">Address 2</span><span class="bank-val">{{ bill.bank_address_line2 }}</span></div>
+            {% if bill.bank_address_line1 or bill.bank_address_line2 %}
+            <div class="bank-row"><span class="bank-key">Address</span><span class="bank-val">{% if bill.bank_address_line1 %}{{ bill.bank_address_line1 }}{% endif %}{% if bill.bank_address_line1 and bill.bank_address_line2 %}, {% endif %}{% if bill.bank_address_line2 %}{{ bill.bank_address_line2 }}{% endif %}</span></div>
             {% endif %}
             {% if bill.account_number %}
             <div class="bank-row"><span class="bank-key">Account No.</span><span class="bank-val">{{ bill.account_number }}</span></div>
