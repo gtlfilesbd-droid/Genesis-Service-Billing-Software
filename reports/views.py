@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.db.models import Sum, Count, Q
 from billing.models import Bill
+from billing.bill_maturity import promote_mature_drafts
 from clients.models import Client
 from accounts.models import UserProfile
 from datetime import date, timedelta
@@ -26,6 +27,7 @@ def report_dashboard(request):
         from django.shortcuts import redirect
         return redirect('dashboard')
 
+    promote_mature_drafts()
     today = date.today()
     year = int(request.GET.get('year', today.year))
     month = int(request.GET.get('month', today.month))
@@ -42,12 +44,13 @@ def report_dashboard(request):
         ).aggregate(t=Sum('total_in_bdt'))['t'] or 0
         monthly_data.append({'label': label, 'total': float(total)})
 
-    # Status breakdown
+    # Status breakdown (workflow)
     status_data = {
         'paid': Bill.objects.filter(status='paid').count(),
-        'unpaid': Bill.objects.filter(status='unpaid').count(),
-        'overdue': Bill.objects.filter(status='overdue').count(),
+        'pending': Bill.objects.filter(status='pending').count(),
+        'submitted': Bill.objects.filter(status='submitted').count(),
         'draft': Bill.objects.filter(status='draft').count(),
+        'cancelled': Bill.objects.filter(status='cancelled').count(),
     }
 
     # Top clients
@@ -57,7 +60,9 @@ def report_dashboard(request):
 
     # Summary
     total_revenue = Bill.objects.filter(status='paid').aggregate(t=Sum('total_in_bdt'))['t'] or 0
-    pending_amount = Bill.objects.filter(status__in=['unpaid', 'overdue']).aggregate(t=Sum('total_in_bdt'))['t'] or 0
+    pending_amount = Bill.objects.filter(
+        status__in=['pending', 'submitted']
+    ).aggregate(t=Sum('total_in_bdt'))['t'] or 0
     this_month_revenue = Bill.objects.filter(
         status='paid', invoice_date__year=today.year, invoice_date__month=today.month
     ).aggregate(t=Sum('total_in_bdt'))['t'] or 0

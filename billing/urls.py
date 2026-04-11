@@ -3,9 +3,14 @@ from . import views
 
 urlpatterns = [
     path('', views.bill_list, name='bill_list'),
+    path('queue/pending/', views.bill_queue_pending, name='bill_queue_pending'),
+    path('queue/submitted/', views.bill_queue_submitted, name='bill_queue_submitted'),
+    path('queue/submit-bulk/', views.bills_submit_bulk, name='bills_submit_bulk'),
+    path('queue/mark-paid-bulk/', views.bills_mark_paid_bulk, name='bills_mark_paid_bulk'),
     path('create/', views.bill_create, name='bill_create'),
     path('<int:pk>/', views.bill_detail, name='bill_detail'),
     path('<int:pk>/edit/', views.bill_edit, name='bill_edit'),
+    path('<int:pk>/submit/', views.bill_submit, name='bill_submit'),
     path('<int:pk>/pdf/', views.bill_pdf, name='bill_pdf'),
     path('<int:pk>/print/', views.bill_print, name='bill_print'),
     path('<int:pk>/excel/', views.bill_excel, name='bill_excel'),

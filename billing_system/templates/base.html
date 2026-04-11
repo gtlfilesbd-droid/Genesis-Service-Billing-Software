@@ -102,8 +102,8 @@
 
         /* Badges */
         .badge-paid { background: #e8f5e9; color: #2e7d32; }
-        .badge-unpaid { background: #fff3e0; color: #e65100; }
-        .badge-overdue { background: #ffebee; color: #c62828; }
+        .badge-pending { background: #fff8e1; color: #f57f17; }
+        .badge-submitted { background: #e3f2fd; color: #1565c0; }
         .badge-draft { background: #f3e5f5; color: #6a1b9a; }
         .badge-cancelled { background: #eceff1; color: #455a64; }
 
@@ -158,6 +158,12 @@
     <div class="nav-section">Billing</div>
     <a href="{% url 'bill_list' %}" class="nav-link {% if request.resolver_match.url_name == 'bill_list' %}active{% endif %}">
         <i class="bi bi-file-earmark-text"></i> Bills
+    </a>
+    <a href="{% url 'bill_queue_pending' %}" class="nav-link {% if request.resolver_match.url_name == 'bill_queue_pending' %}active{% endif %}">
+        <i class="bi bi-hourglass-split"></i> Pending queue
+    </a>
+    <a href="{% url 'bill_queue_submitted' %}" class="nav-link {% if request.resolver_match.url_name == 'bill_queue_submitted' %}active{% endif %}">
+        <i class="bi bi-send-check"></i> Submitted queue
     </a>
     {% if profile.can_generate_bill or request.user.is_superuser %}
     <a href="{% url 'bill_create' %}" class="nav-link {% if request.resolver_match.url_name == 'bill_create' %}active{% endif %}">

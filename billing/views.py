@@ -124,10 +124,10 @@ def get_profile(user):
 
 def _snap_bill_invoice_to_today_on_view(bill):
     """
-    Draft bills: opening the invoice view refreshes invoice_date to today and
-    rebuilds auto invoice_number (date segment). Paid/cancelled stay fixed.
+    Draft / Pending: opening the invoice view refreshes invoice_date to today and
+    rebuilds auto invoice_number (date segment). Submitted / paid / cancelled stay fixed.
     """
-    if bill.status not in ('draft',):
+    if bill.status not in ('draft', 'pending'):
         return
     today = timezone.localdate()
     if bill.invoice_date == today:
@@ -209,7 +209,13 @@ def _save_bill_from_post(request, bill):
         bill.remark = request.POST.get('remark', '')
         _set_billing_bank_fk_from_post(request, bill)
         _apply_bank_fields_from_post(request, bill)
-        bill.status = request.POST.get('status', 'draft')
+        posted = request.POST.get('status', 'draft')
+        if is_edit:
+            bill.status = posted
+        else:
+            from .bill_maturity import bill_is_mature
+
+            bill.status = 'pending' if bill_is_mature(bill) else 'draft'
         if not bill.created_by_id:
             bill.created_by = request.user
         bill.save()
@@ -258,6 +264,9 @@ def _save_bill_from_post(request, bill):
 
 @login_required
 def bill_list(request):
+    from .bill_maturity import promote_mature_drafts
+
+    promote_mature_drafts()
     bills = Bill.objects.select_related('client').all()
     status_filter = request.GET.get('status', '')
     client_filter = request.GET.get('client', '')
@@ -320,6 +329,9 @@ def bill_create(request):
 
 @login_required
 def bill_detail(request, pk):
+    from .bill_maturity import promote_mature_drafts
+
+    promote_mature_drafts()
     bill = get_object_or_404(
         Bill.objects.select_related('client', 'agreement', 'agreement__agreement_with'),
         pk=pk,
@@ -437,6 +449,9 @@ def get_agreement_services(request, agreement_id):
 @login_required
 def bill_pdf(request, pk):
     from django.template.loader import render_to_string
+    from .bill_maturity import promote_mature_drafts
+
+    promote_mature_drafts()
     try:
         import weasyprint
         bill = get_object_or_404(Bill, pk=pk)
@@ -454,6 +469,9 @@ def bill_pdf(request, pk):
 
 @login_required
 def bill_print(request, pk):
+    from .bill_maturity import promote_mature_drafts
+
+    promote_mature_drafts()
     bill = get_object_or_404(Bill, pk=pk)
     _snap_bill_invoice_to_today_on_view(bill)
     return render(request, 'bills/bill_pdf.html', {'bill': bill, 'print_mode': True})
@@ -461,6 +479,9 @@ def bill_print(request, pk):
 
 @login_required
 def bill_excel(request, pk):
+    from .bill_maturity import promote_mature_drafts
+
+    promote_mature_drafts()
     try:
         import openpyxl
         from openpyxl.styles import Font, Alignment, PatternFill
@@ -536,17 +557,121 @@ def bill_excel(request, pk):
 
 @login_required
 def mark_paid(request, pk):
+    if request.method != 'POST':
+        messages.error(request, 'Use the Mark paid button on the bill page.')
+        return redirect('bill_detail', pk=pk)
     profile = get_profile(request.user)
     if not profile.can_edit_bill and not request.user.is_superuser:
         messages.error(request, 'Permission denied.')
         return redirect('bill_detail', pk=pk)
     bill = get_object_or_404(Bill, pk=pk)
+    if bill.status != 'submitted':
+        messages.error(request, 'Only submitted bills can be marked paid.')
+        return redirect('bill_detail', pk=pk)
     bill.status = 'paid'
     bill.payment_date = date.today()
     bill.save()
     inv = bill.invoice_number or bill.bill_number
     messages.success(request, f'Invoice {inv} marked as paid.')
     return redirect('bill_detail', pk=pk)
+
+
+@login_required
+def bill_submit(request, pk):
+    if request.method != 'POST':
+        return redirect('bill_detail', pk=pk)
+    profile = get_profile(request.user)
+    if not profile.can_edit_bill and not request.user.is_superuser:
+        messages.error(request, 'Permission denied.')
+        return redirect('bill_detail', pk=pk)
+    bill = get_object_or_404(Bill, pk=pk)
+    if bill.status != 'pending':
+        messages.error(request, 'Only pending (mature) bills can be submitted to the client.')
+        return redirect('bill_detail', pk=pk)
+    bill.status = 'submitted'
+    bill.save()
+    inv = bill.invoice_number or bill.bill_number
+    messages.success(request, f'Invoice {inv} marked as submitted (sent to client).')
+    return redirect('bill_detail', pk=pk)
+
+
+@login_required
+def bills_submit_bulk(request):
+    if request.method != 'POST':
+        return redirect('bill_queue_pending')
+    profile = get_profile(request.user)
+    if not profile.can_edit_bill and not request.user.is_superuser:
+        messages.error(request, 'Permission denied.')
+        return redirect('bill_queue_pending')
+    ids = []
+    for x in request.POST.getlist('bill_ids'):
+        if str(x).isdigit():
+            ids.append(int(x))
+    if not ids:
+        messages.warning(request, 'No bills selected.')
+        return redirect('bill_queue_pending')
+    n = Bill.objects.filter(pk__in=ids, status='pending').update(status='submitted')
+    messages.success(request, f'{n} bill(s) marked as submitted.')
+    return redirect('bill_queue_pending')
+
+
+@login_required
+def bills_mark_paid_bulk(request):
+    if request.method != 'POST':
+        return redirect('bill_queue_submitted')
+    profile = get_profile(request.user)
+    if not profile.can_edit_bill and not request.user.is_superuser:
+        messages.error(request, 'Permission denied.')
+        return redirect('bill_queue_submitted')
+    ids = []
+    for x in request.POST.getlist('bill_ids'):
+        if str(x).isdigit():
+            ids.append(int(x))
+    if not ids:
+        messages.warning(request, 'No bills selected.')
+        return redirect('bill_queue_submitted')
+    today = date.today()
+    n = Bill.objects.filter(pk__in=ids, status='submitted').update(
+        status='paid', payment_date=today
+    )
+    messages.success(request, f'{n} bill(s) marked as paid.')
+    return redirect('bill_queue_submitted')
+
+
+@login_required
+def bill_queue_pending(request):
+    from .bill_maturity import promote_mature_drafts
+
+    promote_mature_drafts()
+    profile = get_profile(request.user)
+    bills = (
+        Bill.objects.filter(status='pending')
+        .select_related('client')
+        .order_by('bill_period_to', 'invoice_date', 'id')
+    )
+    return render(
+        request,
+        'bills/bill_queue_pending.html',
+        {'bills': bills, 'profile': profile},
+    )
+
+
+@login_required
+def bill_queue_submitted(request):
+    from .bill_maturity import promote_mature_drafts
+
+    promote_mature_drafts()
+    profile = get_profile(request.user)
+    bills = (
+        Bill.objects.filter(status='submitted')
+        .select_related('client')
+        .order_by('-invoice_date', '-id')
+    )
+    return render(
+        request,
+        'bills/bill_queue_submitted.html',
+        {'bills': bills, 'profile': profile},
+    )
 
 
 @login_required

@@ -10,9 +10,9 @@ from clients.models import Client, Agreement, Service
 
 BILL_STATUS_CHOICES = [
     ('draft', 'Draft'),
-    ('unpaid', 'Unpaid'),
+    ('pending', 'Pending'),
+    ('submitted', 'Submitted'),
     ('paid', 'Paid'),
-    ('overdue', 'Overdue'),
     ('cancelled', 'Cancelled'),
 ]
 
@@ -265,8 +265,9 @@ class Bill(models.Model):
 
     @property
     def is_overdue(self):
+        """Submitted but invoice date is in the past (awaiting payment)."""
         from datetime import date
-        return self.status == 'unpaid' and self.invoice_date < date.today()
+        return self.status == 'submitted' and self.invoice_date < date.today()
 
 
 class BillItem(models.Model):
