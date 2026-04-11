@@ -123,36 +123,58 @@ def get_profile(user):
         return UserProfile.objects.create(user=user)
 
 
-def _ym_filter_from_request(request):
-    y = request.GET.get('year')
-    m = request.GET.get('month')
-    yf = int(y) if y and str(y).isdigit() else None
-    mf = int(m) if m and str(m).isdigit() and 1 <= int(m) <= 12 else None
-    return yf, mf
-
-
 def _render_queue_grouped(request, bills_base_qs, template_name, profile):
-    from .sync_auto_bills import sync_billing_queues, group_bills_by_invoice_month, year_choices_for_filter
+    from .sync_auto_bills import sync_billing_queues, group_bills_by_invoice_month
 
     sync_billing_queues()
-    yf, mf = _ym_filter_from_request(request)
+    status_filter = request.GET.get('status', '')
+    client_filter = request.GET.get('client', '')
+    search = request.GET.get('search', '')
+    inv_year = request.GET.get('inv_year', '').strip()
+    inv_month = request.GET.get('inv_month', '').strip()
+
     bills = bills_base_qs.select_related('client')
-    if yf is not None:
-        bills = bills.filter(invoice_date__year=yf)
-    if mf is not None:
-        bills = bills.filter(invoice_date__month=mf)
+    if status_filter:
+        bills = bills.filter(status=status_filter)
+    if client_filter:
+        bills = bills.filter(client_id=client_filter)
+    if search:
+        bills = bills.filter(
+            Q(bill_number__icontains=search)
+            | Q(client__name__icontains=search)
+            | Q(invoice_number__icontains=search)
+        )
+    if inv_year.isdigit():
+        bills = bills.filter(invoice_date__year=int(inv_year))
+    if inv_month.isdigit():
+        m = int(inv_month)
+        if 1 <= m <= 12:
+            bills = bills.filter(invoice_date__month=m)
+
     grouped = group_bills_by_invoice_month(bills)
-    filter_years = year_choices_for_filter(bills_base_qs)
-    months_choices = [(i, calendar.month_name[i]) for i in range(1, 13)]
+
+    year_rows = Bill.objects.exclude(invoice_date__isnull=True).dates(
+        'invoice_date', 'year', order='DESC'
+    )
+    invoice_year_choices = [d.year for d in year_rows]
+    if not invoice_year_choices:
+        invoice_year_choices = [date.today().year]
+    month_choices = [(str(i), calendar.month_name[i]) for i in range(1, 13)]
+
     return render(
         request,
         template_name,
         {
             'grouped_bills': grouped,
-            'filter_years': filter_years,
-            'filter_year': yf,
-            'filter_month': mf,
-            'months_choices': months_choices,
+            'clients': Client.objects.filter(is_active=True),
+            'status_filter': status_filter,
+            'client_filter': client_filter,
+            'search': search,
+            'inv_year': inv_year,
+            'inv_month': inv_month,
+            'invoice_year_choices': invoice_year_choices,
+            'month_choices': month_choices,
+            'status_choices': Bill._meta.get_field('status').choices,
             'profile': profile,
         },
     )
