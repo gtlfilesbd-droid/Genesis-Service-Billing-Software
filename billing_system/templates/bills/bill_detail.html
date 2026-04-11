@@ -27,6 +27,7 @@
         </a>
         <h4 class="fw-bold mb-1">Invoice <span class="text-primary">#{{ bill.invoice_number|default:bill.bill_number }}</span></h4>
         {% if bill.invoice_number %}<div class="text-muted small mb-1">Bill ref: {{ bill.bill_number }}</div>{% endif %}
+        <span class="badge badge-{{ bill.status }} px-3 py-2 rounded-pill fs-6">{{ bill.get_status_display }}</span>
     </div>
     <div class="d-flex gap-2 flex-wrap">
         {% if profile.can_edit_bill or request.user.is_superuser %}
@@ -237,6 +238,10 @@
             <h6 class="fw-bold mb-0"><i class="bi bi-cash-coin me-2 text-primary"></i>Payment Info</h6>
         </div>
         <div class="card-body">
+            <div class="d-flex justify-content-between mb-2 small">
+                <span class="text-muted">Status</span>
+                <span class="badge badge-{{ bill.status }} px-2 rounded-pill">{{ bill.get_status_display }}</span>
+            </div>
             {% if bill.payment_date %}
             <div class="d-flex justify-content-between mb-2 small">
                 <span class="text-muted">Paid On</span>
