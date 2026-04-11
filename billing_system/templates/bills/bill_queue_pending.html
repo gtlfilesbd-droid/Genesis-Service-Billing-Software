@@ -8,7 +8,11 @@
         <h4 class="fw-bold mb-1">Pending <span class="text-muted small fw-normal">(mature — auto from agreements)</span></h4>
         <p class="text-muted small mb-0">Bills are created when a service period ends. Grouped by invoice month/year.</p>
     </div>
+    {% if profile.can_access_dashboard or request.user.is_superuser %}
     <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
+    {% else %}
+    <a href="{% url 'bill_list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-text me-1"></i>Bills</a>
+    {% endif %}
 </div>
 
 <form method="get" class="card border-0 shadow-sm mb-3">
@@ -40,7 +44,7 @@
     </div>
 </form>
 
-{% if profile.can_edit_bill or request.user.is_superuser %}
+{% if profile.can_submit_bill or request.user.is_superuser %}
 <form method="post" action="{% url 'bills_submit_bulk' %}" id="bulkSubmitForm" class="mb-0">
     {% csrf_token %}
     <div class="card border-0 shadow-sm mb-2">
@@ -65,10 +69,10 @@
             <table class="table table-hover mb-0">
                 <thead>
                     <tr>
-                        {% if profile.can_edit_bill or request.user.is_superuser %}
+                        {% if profile.can_submit_bill or request.user.is_superuser %}
                         <th class="ps-3" style="width:44px;"></th>
                         {% endif %}
-                        <th class="{% if not profile.can_edit_bill and not request.user.is_superuser %}ps-3{% endif %}">Invoice</th>
+                        <th class="{% if not profile.can_submit_bill and not request.user.is_superuser %}ps-3{% endif %}">Invoice</th>
                         <th>Client</th>
                         <th>Invoice date</th>
                         <th>Bill period</th>
@@ -79,7 +83,7 @@
                 <tbody>
                 {% for bill in section.bills %}
                 <tr>
-                    {% if profile.can_edit_bill or request.user.is_superuser %}
+                    {% if profile.can_submit_bill or request.user.is_superuser %}
                     <td class="ps-3 align-middle">
                         <input type="checkbox" class="form-check-input pending-cb" name="bill_ids" value="{{ bill.pk }}" form="bulkSubmitForm">
                     </td>
@@ -94,7 +98,7 @@
                     <td class="align-middle fw-semibold">৳{{ bill.total_in_bdt|floatformat:0 }}</td>
                     <td class="align-middle">
                         <a href="{% url 'bill_detail' bill.pk %}" class="btn btn-sm btn-outline-primary">View</a>
-                        {% if profile.can_edit_bill or request.user.is_superuser %}
+                        {% if profile.can_submit_bill or request.user.is_superuser %}
                         <form method="post" action="{% url 'bill_submit' bill.pk %}" class="d-inline">
                             {% csrf_token %}
                             <button type="submit" class="btn btn-sm btn-primary" onclick="return confirm('Submit this bill to the client?');">Submit</button>
@@ -116,7 +120,7 @@
 </div>
 {% endfor %}
 
-{% if profile.can_edit_bill or request.user.is_superuser %}
+{% if profile.can_submit_bill or request.user.is_superuser %}
 <script>
 document.getElementById('selectAllPending')?.addEventListener('click', () => {
     document.querySelectorAll('.pending-cb').forEach(c => { c.checked = true; });

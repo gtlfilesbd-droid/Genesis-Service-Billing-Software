@@ -27,6 +27,7 @@
 </div>
 
 <!-- Stats Row 1 -->
+{% if profile.dashboard_show_financial_summary or request.user.is_superuser %}
 <div class="row g-3 mb-4">
     <div class="col-md-3 col-sm-6">
         <div class="card stat-card p-3">
@@ -73,8 +74,10 @@
         </div>
     </div>
 </div>
+{% endif %}
 
 <!-- Workflow queues -->
+{% if profile.dashboard_show_workflow_queues or request.user.is_superuser %}
 <div class="row g-3 mb-4">
     <div class="col-md-4 col-sm-4">
         <a href="{% url 'bill_queue_pending' %}" class="click-stat">
@@ -101,8 +104,10 @@
         </a>
     </div>
 </div>
+{% endif %}
 
 <!-- Tables Row -->
+{% if profile.dashboard_show_activity or request.user.is_superuser %}
 <div class="row g-3">
     <!-- Recent Bills -->
     <div class="col-lg-7">
@@ -190,4 +195,9 @@
         </div>
     </div>
 </div>
+{% endif %}
+
+{% if not profile.dashboard_show_financial_summary and not profile.dashboard_show_workflow_queues and not profile.dashboard_show_activity and not request.user.is_superuser %}
+<div class="alert alert-info mb-0">Your dashboard sections are turned off. Ask an admin to enable them under your user profile in Admin, or use the sidebar (e.g. Bills).</div>
+{% endif %}
 {% endblock %}

@@ -8,7 +8,11 @@
         <h4 class="fw-bold mb-1">Paid <span class="text-muted small fw-normal">(payment received)</span></h4>
         <p class="text-muted small mb-0">Grouped by invoice month/year.</p>
     </div>
+    {% if profile.can_access_dashboard or request.user.is_superuser %}
     <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
+    {% else %}
+    <a href="{% url 'bill_list' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-file-earmark-text me-1"></i>Bills</a>
+    {% endif %}
 </div>
 
 <form method="get" class="card border-0 shadow-sm mb-3">

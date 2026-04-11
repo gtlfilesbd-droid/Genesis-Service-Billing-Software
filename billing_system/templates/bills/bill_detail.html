@@ -36,6 +36,8 @@
             <i class="bi bi-pencil me-1"></i>Edit
         </a>
         {% endif %}
+        {% endif %}
+        {% if profile.can_submit_bill or request.user.is_superuser %}
         {% if bill.status == 'pending' and bill.is_mature %}
         <form method="post" action="{% url 'bill_submit' bill.pk %}" class="d-inline">
             {% csrf_token %}
@@ -43,7 +45,10 @@
                 <i class="bi bi-send-check me-1"></i>Submit to client
             </button>
         </form>
-        {% elif bill.status == 'submitted' %}
+        {% endif %}
+        {% endif %}
+        {% if profile.can_mark_bill_paid or request.user.is_superuser %}
+        {% if bill.status == 'submitted' %}
         <form method="post" action="{% url 'mark_paid' bill.pk %}" class="d-inline">
             {% csrf_token %}
             <button type="submit" class="btn btn-success" onclick="return confirm('Mark this bill as paid?');">

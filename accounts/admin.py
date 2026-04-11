@@ -9,6 +9,19 @@ class UserProfileInline(admin.StackedInline):
     can_delete = False
     verbose_name_plural = 'Permissions & Profile'
     fieldsets = (
+        ('Dashboard', {
+            'fields': (
+                'can_access_dashboard',
+                ('dashboard_show_financial_summary', 'dashboard_show_workflow_queues', 'dashboard_show_activity'),
+            ),
+            'description': 'Who may open the dashboard and which sections they see.',
+        }),
+        ('Billing workflow', {
+            'fields': (
+                ('can_submit_bill', 'can_mark_bill_paid'),
+            ),
+            'description': 'Submit = pending → submitted (e.g. service). Mark paid = submitted → paid (e.g. accounts).',
+        }),
         ('Permissions', {
             'fields': (
                 ('can_add_client', 'can_edit_client', 'can_delete_client'),
@@ -44,6 +57,20 @@ class CustomUserAdmin(UserAdmin):
     get_can_generate_bill.boolean = True
 
 
+@admin.register(UserProfile)
+class UserProfileAdmin(admin.ModelAdmin):
+    list_display = (
+        'user', 'can_access_dashboard', 'can_submit_bill', 'can_mark_bill_paid',
+        'dashboard_show_financial_summary', 'dashboard_show_workflow_queues', 'dashboard_show_activity',
+    )
+    list_filter = (
+        'can_access_dashboard', 'can_submit_bill', 'can_mark_bill_paid',
+        'dashboard_show_financial_summary', 'dashboard_show_workflow_queues', 'dashboard_show_activity',
+    )
+    search_fields = ('user__username', 'user__email', 'department')
+    raw_id_fields = ('user',)
+    fieldsets = UserProfileInline.fieldsets
+
+
 admin.site.unregister(User)
 admin.site.register(User, CustomUserAdmin)
-admin.site.register(UserProfile)

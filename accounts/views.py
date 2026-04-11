@@ -8,7 +8,14 @@ from django.contrib.auth.models import User
 
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect('dashboard')
+        u = request.user
+        if u.is_superuser:
+            return redirect('dashboard')
+        try:
+            p = u.profile
+        except UserProfile.DoesNotExist:
+            p = UserProfile.objects.create(user=u)
+        return redirect('dashboard' if p.can_access_dashboard else 'bill_list')
 
     if request.method == 'POST':
         username = request.POST.get('username')
@@ -16,8 +23,16 @@ def login_view(request):
         user = authenticate(request, username=username, password=password)
         if user:
             login(request, user)
-            next_url = request.GET.get('next', 'dashboard')
-            return redirect(next_url)
+            next_url = request.GET.get('next', '').strip()
+            if next_url:
+                return redirect(next_url)
+            try:
+                prof = user.profile
+            except UserProfile.DoesNotExist:
+                prof = UserProfile.objects.create(user=user)
+            if user.is_superuser or prof.can_access_dashboard:
+                return redirect('dashboard')
+            return redirect('bill_list')
         else:
             messages.error(request, 'Invalid username or password.')
 
@@ -53,11 +68,18 @@ def profile_view(request):
         return redirect('profile')
 
     perms_list = [
+        (profile.can_access_dashboard, 'Access dashboard'),
+        (profile.dashboard_show_financial_summary, 'Dashboard: financial summary'),
+        (profile.dashboard_show_workflow_queues, 'Dashboard: queue cards'),
+        (profile.dashboard_show_activity, 'Dashboard: recent activity'),
+        (profile.can_submit_bill, 'Submit bills (pending to submitted)'),
+        (profile.can_mark_bill_paid, 'Mark bills paid'),
         (profile.can_add_client, 'Add Client'),
         (profile.can_edit_client, 'Edit Client'),
         (profile.can_delete_client, 'Delete Client'),
         (profile.can_generate_bill, 'Generate Bill'),
         (profile.can_edit_bill, 'Edit Bill'),
+        (profile.can_delete_bill, 'Delete Bill'),
         (profile.can_view_reports, 'View Reports'),
         (profile.can_export_reports, 'Export Reports'),
     ]

@@ -610,8 +610,8 @@ def mark_paid(request, pk):
         messages.error(request, 'Use the Mark paid button on the bill page.')
         return redirect('bill_detail', pk=pk)
     profile = get_profile(request.user)
-    if not profile.can_edit_bill and not request.user.is_superuser:
-        messages.error(request, 'Permission denied.')
+    if not profile.can_mark_bill_paid and not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to mark bills as paid.')
         return redirect('bill_detail', pk=pk)
     bill = get_object_or_404(Bill, pk=pk)
     if bill.status != 'submitted':
@@ -630,8 +630,8 @@ def bill_submit(request, pk):
     if request.method != 'POST':
         return redirect('bill_detail', pk=pk)
     profile = get_profile(request.user)
-    if not profile.can_edit_bill and not request.user.is_superuser:
-        messages.error(request, 'Permission denied.')
+    if not profile.can_submit_bill and not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to submit bills to the client.')
         return redirect('bill_detail', pk=pk)
     bill = get_object_or_404(Bill, pk=pk)
     if bill.status != 'pending':
@@ -655,8 +655,8 @@ def bills_submit_bulk(request):
     if request.method != 'POST':
         return redirect('bill_queue_pending')
     profile = get_profile(request.user)
-    if not profile.can_edit_bill and not request.user.is_superuser:
-        messages.error(request, 'Permission denied.')
+    if not profile.can_submit_bill and not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to submit bills.')
         return redirect('bill_queue_pending')
     ids = []
     for x in request.POST.getlist('bill_ids'):
@@ -681,8 +681,8 @@ def bills_mark_paid_bulk(request):
     if request.method != 'POST':
         return redirect('bill_queue_submitted')
     profile = get_profile(request.user)
-    if not profile.can_edit_bill and not request.user.is_superuser:
-        messages.error(request, 'Permission denied.')
+    if not profile.can_mark_bill_paid and not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to mark bills as paid.')
         return redirect('bill_queue_submitted')
     ids = []
     for x in request.POST.getlist('bill_ids'):

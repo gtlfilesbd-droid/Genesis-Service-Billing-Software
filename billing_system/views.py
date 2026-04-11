@@ -1,5 +1,6 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from django.db.models import Sum
 from clients.models import Client
 from billing.models import Bill
@@ -17,6 +18,11 @@ def _dashboard_profile(user):
 
 @login_required
 def dashboard(request):
+    profile = _dashboard_profile(request.user)
+    if not profile.can_access_dashboard and not request.user.is_superuser:
+        messages.info(request, 'You do not have access to the dashboard. Use the menu to open Bills or other pages.')
+        return redirect('bill_list')
+
     sync_billing_queues()
     today = timezone.now().date()
     this_month_start = today.replace(day=1)
@@ -52,7 +58,7 @@ def dashboard(request):
     ).select_related('client').order_by('invoice_date')[:5]
 
     context = {
-        'profile': _dashboard_profile(request.user),
+        'profile': profile,
         'total_clients': total_clients,
         'total_bills': total_bills,
         'paid_bills': paid_bills,

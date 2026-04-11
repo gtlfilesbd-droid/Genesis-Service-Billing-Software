@@ -133,9 +133,11 @@
     </div>
 
     <div class="nav-section">Main</div>
+    {% if request.user.is_superuser or profile.can_access_dashboard %}
     <a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
         <i class="bi bi-speedometer2"></i> Dashboard
     </a>
+    {% endif %}
 
     {% if profile.can_view_reports or request.user.is_superuser %}
     <div class="nav-section">Reports</div>
