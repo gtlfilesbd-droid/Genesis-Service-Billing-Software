@@ -5,6 +5,7 @@ urlpatterns = [
     path('', views.bill_list, name='bill_list'),
     path('queue/pending/', views.bill_queue_pending, name='bill_queue_pending'),
     path('queue/submitted/', views.bill_queue_submitted, name='bill_queue_submitted'),
+    path('queue/paid/', views.bill_queue_paid, name='bill_queue_paid'),
     path('queue/submit-bulk/', views.bills_submit_bulk, name='bills_submit_bulk'),
     path('queue/mark-paid-bulk/', views.bills_mark_paid_bulk, name='bills_mark_paid_bulk'),
     path('create/', views.bill_create, name='bill_create'),

@@ -93,10 +93,12 @@
         </a>
     </div>
     <div class="col-md-4 col-sm-4">
-        <div class="card stat-card p-3 border-start border-4 border-success h-100">
-            <div class="text-muted small">Paid</div>
-            <div class="fs-3 fw-bold text-success">{{ paid_bills }}</div>
-        </div>
+        <a href="{% url 'bill_queue_paid' %}" class="click-stat">
+            <div class="card stat-card p-3 border-start border-4 border-success h-100">
+                <div class="text-muted small">Paid <span class="d-block text-dark fw-semibold mt-1">Payment received</span></div>
+                <div class="fs-3 fw-bold text-success">{{ paid_bills }}</div>
+            </div>
+        </a>
     </div>
 </div>
 

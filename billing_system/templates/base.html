@@ -164,6 +164,9 @@
     <a href="{% url 'bill_queue_submitted' %}" class="nav-link {% if request.resolver_match.url_name == 'bill_queue_submitted' %}active{% endif %}">
         <i class="bi bi-send-check"></i> Submitted queue
     </a>
+    <a href="{% url 'bill_queue_paid' %}" class="nav-link {% if request.resolver_match.url_name == 'bill_queue_paid' %}active{% endif %}">
+        <i class="bi bi-check-circle"></i> Paid queue
+    </a>
     {% if profile.can_generate_bill or request.user.is_superuser %}
     <a href="{% url 'bill_create' %}" class="nav-link {% if request.resolver_match.url_name == 'bill_create' %}active{% endif %}">
         <i class="bi bi-plus-circle"></i> New Bill

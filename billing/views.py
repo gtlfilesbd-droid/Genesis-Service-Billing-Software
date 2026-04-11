@@ -666,6 +666,21 @@ def bill_queue_submitted(request):
 
 
 @login_required
+def bill_queue_paid(request):
+    profile = get_profile(request.user)
+    bills = (
+        Bill.objects.filter(status='paid')
+        .select_related('client')
+        .order_by('-payment_date', '-invoice_date', '-id')
+    )
+    return render(
+        request,
+        'bills/bill_queue_paid.html',
+        {'bills': bills, 'profile': profile},
+    )
+
+
+@login_required
 def bill_delete(request, pk):
     profile = get_profile(request.user)
     if not profile.can_delete_bill and not request.user.is_superuser:
