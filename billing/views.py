@@ -122,6 +122,20 @@ def get_profile(user):
         return UserProfile.objects.create(user=user)
 
 
+def _snap_bill_invoice_to_today_on_view(bill):
+    """
+    Draft bills: opening the invoice view refreshes invoice_date to today and
+    rebuilds auto invoice_number (date segment). Paid/cancelled stay fixed.
+    """
+    if bill.status not in ('draft',):
+        return
+    today = timezone.localdate()
+    if bill.invoice_date == today:
+        return
+    bill.invoice_date = today
+    bill.save()
+
+
 def _validate_bill_invoice_prerequisites(client_id, agreement_id):
     if not client_id or not agreement_id:
         return False, 'Please select a client and an agreement.'
@@ -310,6 +324,7 @@ def bill_detail(request, pk):
         Bill.objects.select_related('client', 'agreement', 'agreement__agreement_with'),
         pk=pk,
     )
+    _snap_bill_invoice_to_today_on_view(bill)
     profile = get_profile(request.user)
     return render(request, 'bills/bill_detail.html', {'bill': bill, 'profile': profile})
 
@@ -425,6 +440,7 @@ def bill_pdf(request, pk):
     try:
         import weasyprint
         bill = get_object_or_404(Bill, pk=pk)
+        _snap_bill_invoice_to_today_on_view(bill)
         html_string = render_to_string('bills/bill_pdf.html', {'bill': bill})
         pdf_file = weasyprint.HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
         response = HttpResponse(pdf_file, content_type='application/pdf')
@@ -439,6 +455,7 @@ def bill_pdf(request, pk):
 @login_required
 def bill_print(request, pk):
     bill = get_object_or_404(Bill, pk=pk)
+    _snap_bill_invoice_to_today_on_view(bill)
     return render(request, 'bills/bill_pdf.html', {'bill': bill, 'print_mode': True})
 
 
