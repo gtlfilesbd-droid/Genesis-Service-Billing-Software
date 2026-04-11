@@ -539,26 +539,34 @@ def bill_print(request, pk):
 def bill_excel(request, pk):
     try:
         import openpyxl
-        from openpyxl.styles import Font, Alignment, PatternFill
+        from openpyxl.styles import Font, Alignment, Border, Side
+        from billing.money_words import bdt_amount_in_words
+
         bill = get_object_or_404(Bill, pk=pk)
         inv_disp = bill.invoice_number or bill.bill_number
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = _safe_excel_sheet_title(inv_disp)
-        blue = PatternFill('solid', fgColor='1565C0')
-        wf = Font(bold=True, color='FFFFFF')
+        thin = Side(style='thin', color='000000')
+        border_all = Border(left=thin, right=thin, top=thin, bottom=thin)
         bf = Font(bold=True)
+        bfh = Font(bold=True, size=10)
+
+        def apply_border_row(row_idx, cols=6):
+            for col in range(1, cols + 1):
+                ws.cell(row=row_idx, column=col).border = border_all
 
         ws.merge_cells('A1:F1')
         ws['A1'] = 'INVOICE'
-        ws['A1'].font = Font(size=18, bold=True, color='1565C0')
+        ws['A1'].font = Font(size=16, bold=True, color='000000')
         ws['A1'].alignment = Alignment(horizontal='center')
         ws.merge_cells('A2:F2')
         ws['A2'] = f'Invoice #: {inv_disp}'
         ws['A2'].alignment = Alignment(horizontal='center')
         ws.append([])
         ws.append(['Bill To:', '', '', 'Invoice Details:', '', ''])
-        ws['A4'].font = bf; ws['D4'].font = bf
+        ws['A4'].font = bf
+        ws['D4'].font = bf
         ws.append([bill.client.name, '', '', 'Invoice Date:', str(bill.invoice_date), ''])
         ws.append([bill.client.address, '', '', 'PO Date:', str(bill.po_date or ''), ''])
         if bill.bill_period_from or bill.bill_period_to:
@@ -573,21 +581,48 @@ def bill_excel(request, pk):
         hr = ws.max_row
         for col in range(1, 7):
             c = ws.cell(row=hr, column=col)
-            c.fill = blue; c.font = wf; c.alignment = Alignment(horizontal='center')
+            c.font = bfh
+            c.alignment = Alignment(horizontal='center', wrap_text=True)
+            c.border = border_all
+        first_item_row = hr + 1
         for idx, item in enumerate(bill.items.all(), 1):
             ws.append([idx, item.description, float(item.quantity), item.unit or '', float(item.unit_price), float(item.amount)])
+        last_item_row = ws.max_row
+        for r in range(first_item_row, last_item_row + 1):
+            apply_border_row(r)
         ws.append([])
         ws.append(['', '', '', '', 'Items Subtotal:', float(bill.subtotal)])
+        sub_row = ws.max_row
+        apply_border_row(sub_row)
+        ws.cell(row=sub_row, column=5).font = bf
+        ws.cell(row=sub_row, column=6).font = bf
         ws.append([])
-        ws.append(['VAT & AIT Details']); ws[f'A{ws.max_row}'].font = bf
+        ws.append(['VAT & AIT Details'])
+        ws[f'A{ws.max_row}'].font = bf
         ws.append(['Base Value (BDT):', '', '', '', '', float(bill.project_base_value)])
+        apply_border_row(ws.max_row)
         ws.append([f'VAT ({bill.vat_rate_percent}%):', '', '', '', '', float(bill.vat_amount)])
+        apply_border_row(ws.max_row)
         ws.append([f'AIT ({bill.ait_rate_percent}%):', '', '', '', '', float(bill.ait_amount)])
+        apply_border_row(ws.max_row)
         ws.append(['Total VAT & AIT:', '', '', '', '', float(bill.excluding_vat_ait)])
-        ws.append(['Total In BDT:', '', '', '', '', float(bill.total_in_bdt)])
+        apply_border_row(ws.max_row)
+        ws.append(['Total In BDT (Base + VAT + AIT):', '', '', '', '', float(bill.total_in_bdt)])
+        tot_row = ws.max_row
+        for col in range(1, 7):
+            c = ws.cell(row=tot_row, column=col)
+            c.border = border_all
+            c.font = bf
+        ws.append(['In words:', bdt_amount_in_words(bill.total_in_bdt), '', '', '', ''])
+        words_row = ws.max_row
+        ws.merge_cells(start_row=words_row, start_column=2, end_row=words_row, end_column=6)
+        apply_border_row(words_row)
+        ws.cell(row=words_row, column=1).font = bf
+        ws.cell(row=words_row, column=2).alignment = Alignment(wrap_text=True, vertical='top')
         if bill.bank_name:
             ws.append([])
-            ws.append(['Bank Information']); ws[f'A{ws.max_row}'].font = bf
+            ws.append(['Bank information (For Payment)'])
+            ws[f'A{ws.max_row}'].font = bf
             ws.append(['Bank Name:', bill.bank_name])
             ws.append(['Beneficiary:', bill.beneficiary or ''])
             ws.append(['Branch:', bill.bank_branch or ''])
