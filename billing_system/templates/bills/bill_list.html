@@ -190,7 +190,7 @@
                             </form>
                             {% endif %}
                             <a href="{% url 'bill_print' bill.pk %}" class="btn btn-sm btn-outline-dark d-none d-sm-inline-block" title="Print" target="_blank"><i class="bi bi-printer"></i></a>
-                            <a href="{% url 'bill_pdf' bill.pk %}" class="btn btn-sm btn-outline-danger" title="PDF"><i class="bi bi-file-pdf"></i></a>
+                            <a href="{% url 'bill_print' bill.pk %}" target="_blank" class="btn btn-sm btn-outline-danger" title="PDF"><i class="bi bi-file-pdf"></i></a>
                             <a href="{% url 'bill_excel' bill.pk %}" class="btn btn-sm btn-outline-success d-none d-md-inline-block" title="Excel"><i class="bi bi-file-excel"></i></a>
                         </div>
                     </td>

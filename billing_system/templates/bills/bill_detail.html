@@ -82,7 +82,7 @@
         <a href="{% url 'bill_print' bill.pk %}" target="_blank" class="btn btn-outline-dark">
             <i class="bi bi-printer me-1"></i>Print
         </a>
-        <a href="{% url 'bill_pdf' bill.pk %}" class="btn btn-danger">
+        <a href="{% url 'bill_print' bill.pk %}" target="_blank" class="btn btn-danger">
             <i class="bi bi-file-pdf me-1"></i>PDF
         </a>
         <a href="{% url 'bill_excel' bill.pk %}" class="btn btn-success">
