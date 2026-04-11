@@ -1,0 +1,289 @@
+{% extends 'base.html' %}
+{% block title %}Bill {{ bill.bill_number }}{% endblock %}
+{% block page_title %}Bill Detail{% endblock %}
+
+{% block extra_css %}
+<style>
+/* Excel-like items: description splits on newlines; SL/Qty/Unit/Price/Amount use rowspan */
+.bill-items-table { border-collapse: collapse; }
+.bill-items-table th,
+.bill-items-table td { border: 1px solid #212529 !important; vertical-align: middle; }
+.bill-items-table td.desc-line-cell {
+    text-align: left;
+    font-weight: 600;
+    padding: 8px 10px;
+    min-width: 200px;
+}
+.bill-items-table .sl-cell { width: 44px; }
+.bill-items-table .nowrap-cell { white-space: nowrap; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-start mb-4 flex-wrap gap-2">
+    <div>
+        <a href="{% url 'bill_list' %}" class="btn btn-sm btn-outline-secondary mb-2">
+            <i class="bi bi-arrow-left me-1"></i>Back
+        </a>
+        <h4 class="fw-bold mb-1">Invoice <span class="text-primary">#{{ bill.invoice_number|default:bill.bill_number }}</span></h4>
+        {% if bill.invoice_number %}<div class="text-muted small mb-1">Bill ref: {{ bill.bill_number }}</div>{% endif %}
+        <span class="badge badge-{{ bill.status }} px-3 py-2 rounded-pill fs-6">{{ bill.get_status_display }}</span>
+    </div>
+    <div class="d-flex gap-2 flex-wrap">
+        {% if profile.can_edit_bill or request.user.is_superuser %}
+        {% if bill.status == 'pending' %}
+        <a href="{% url 'bill_edit' bill.pk %}" class="btn btn-outline-secondary">
+            <i class="bi bi-pencil me-1"></i>Edit
+        </a>
+        {% endif %}
+        {% endif %}
+        {% if profile.can_submit_bill or request.user.is_superuser %}
+        {% if bill.status == 'pending' and bill.is_mature %}
+        <form method="post" action="{% url 'bill_submit' bill.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary" onclick="return confirm('Submit this bill to the client (sent)?');">
+                <i class="bi bi-send-check me-1"></i>Submit to client
+            </button>
+        </form>
+        {% endif %}
+        {% endif %}
+        {% if profile.can_mark_bill_paid or request.user.is_superuser %}
+        {% if bill.status == 'submitted' %}
+        <form method="post" action="{% url 'mark_paid' bill.pk %}" class="d-inline">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success" onclick="return confirm('Mark this bill as paid?');">
+                <i class="bi bi-check-circle me-1"></i>Make paid
+            </button>
+        </form>
+        {% endif %}
+        {% endif %}
+        {% if profile.can_delete_bill or request.user.is_superuser %}
+        <form method="post" action="{% url 'bill_delete' bill.pk %}" class="d-inline"
+              onsubmit="return confirm('Delete this bill permanently? This cannot be undone.');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-outline-danger">
+                <i class="bi bi-trash3 me-1"></i>Delete
+            </button>
+        </form>
+        {% endif %}
+        <a href="{% url 'bill_print' bill.pk %}" target="_blank" class="btn btn-outline-dark">
+            <i class="bi bi-printer me-1"></i>Print
+        </a>
+        <a href="{% url 'bill_pdf' bill.pk %}" class="btn btn-danger">
+            <i class="bi bi-file-pdf me-1"></i>PDF
+        </a>
+        <a href="{% url 'bill_excel' bill.pk %}" class="btn btn-success">
+            <i class="bi bi-file-excel me-1"></i>Excel
+        </a>
+    </div>
+</div>
+
+<div class="row g-3">
+<!-- Main Invoice Panel -->
+<div class="col-lg-8">
+    <div class="card" style="border:none;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.09);">
+        <div class="card-body p-4">
+
+            <!-- Invoice header -->
+            <div class="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                    <h4 class="fw-bold text-primary mb-0"><i class="bi bi-receipt-cutoff me-2"></i>Genesis Bill<span style="color:#64B5F6;">Soft</span></h4>
+                    <div class="text-muted small">Service Billing Management</div>
+                </div>
+                <div class="text-end">
+                    <div class="fs-4 fw-bold text-uppercase text-dark">Invoice</div>
+                    <div class="text-muted small"># {{ bill.invoice_number|default:bill.bill_number }}</div>
+                </div>
+            </div>
+            <hr class="border-2 border-primary opacity-25 mb-3">
+
+            <!-- Bill To + Invoice Details -->
+            <div class="row mb-4">
+                <div class="col-6">
+                    <div class="text-muted small fw-bold text-uppercase mb-2" style="letter-spacing:.8px">Bill To</div>
+                    <div class="fw-bold fs-6">{{ bill.client.name }}</div>
+                    {% if bill.client.company %}<div class="text-muted small">{{ bill.client.company }}</div>{% endif %}
+                    <div class="small">{{ bill.client.address }}</div>
+                    {% if bill.client.city %}<div class="small text-muted">{{ bill.client.city }}, {{ bill.client.country }}</div>{% endif %}
+                    {% if bill.client.phone %}<div class="small text-muted"><i class="bi bi-telephone me-1"></i>{{ bill.client.phone }}</div>{% endif %}
+                    {% if bill.client.email %}<div class="small text-muted"><i class="bi bi-envelope me-1"></i>{{ bill.client.email }}</div>{% endif %}
+                </div>
+                <div class="col-6">
+                    <table class="table table-sm table-borderless mb-0 small">
+                        <tr><td class="text-muted fw-semibold" width="45%">Invoice No.</td>
+                            <td class="fw-semibold">{{ bill.invoice_number|default:bill.bill_number }}</td></tr>
+                        <tr><td class="text-muted fw-semibold" width="45%">Invoice Date</td>
+                            <td class="fw-semibold">{{ bill.invoice_date }}</td></tr>
+                        {% if bill.po_date %}
+                        <tr><td class="text-muted fw-semibold">PO Date</td>
+                            <td>{{ bill.po_date }}</td></tr>
+                        {% endif %}
+                        {% if bill.bill_period_from or bill.bill_period_to %}
+                        <tr><td class="text-muted fw-semibold">Bill From</td>
+                            <td>{{ bill.bill_period_from|default:"—" }}</td></tr>
+                        <tr><td class="text-muted fw-semibold">Bill To</td>
+                            <td>{{ bill.bill_period_to|default:"—" }}</td></tr>
+                        {% elif bill.bill_period %}
+                        <tr><td class="text-muted fw-semibold">Bill Period</td>
+                            <td>{{ bill.bill_period }}</td></tr>
+                        {% endif %}
+                    </table>
+                </div>
+            </div>
+
+            <!-- Items Table -->
+            <div class="table-responsive mb-3">
+                <table class="table mb-0 bill-items-table">
+                    <thead style="background:#1565C0;color:white;">
+                        <tr>
+                            <th class="text-center sl-cell" width="44">SL</th>
+                            <th>Description</th>
+                            <th class="text-center" width="70">Qty</th>
+                            <th class="text-center" width="100">Unit</th>
+                            <th class="text-end" width="140">Unit Price</th>
+                            <th class="text-end pe-3" width="140">Amount</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                    {% for item in bill.items.all %}
+                    {% for line in item.description_lines %}
+                    <tr>
+                        {% if forloop.first %}
+                        <td class="text-center sl-cell fw-semibold text-muted small" rowspan="{{ item.description_lines|length }}">{{ forloop.parentloop.counter }}</td>
+                        {% endif %}
+                        <td class="desc-line-cell">{{ line }}</td>
+                        {% if forloop.first %}
+                        <td class="text-center nowrap-cell" rowspan="{{ item.description_lines|length }}">{{ item.quantity }}</td>
+                        <td class="text-center text-muted small nowrap-cell" rowspan="{{ item.description_lines|length }}">{{ item.unit|default:"—" }}</td>
+                        <td class="text-end nowrap-cell" rowspan="{{ item.description_lines|length }}">৳{{ item.unit_price|floatformat:2 }}</td>
+                        <td class="text-end pe-3 fw-bold nowrap-cell" rowspan="{{ item.description_lines|length }}">৳{{ item.amount|floatformat:2 }}</td>
+                        {% endif %}
+                    </tr>
+                    {% endfor %}
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted py-3">No items</td></tr>
+                    {% endfor %}
+                    </tbody>
+                    <tfoot>
+                        <tr class="table-light">
+                            <td colspan="5" class="text-end fw-semibold">Items Subtotal</td>
+                            <td class="text-end pe-3 fw-bold">৳{{ bill.subtotal|floatformat:2 }}</td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+
+            <!-- VAT & AIT Summary -->
+            <div class="bg-light rounded-3 p-3 mb-3">
+                <div class="text-muted small fw-bold text-uppercase mb-2" style="letter-spacing:.5px">VAT &amp; AIT Details</div>
+                <div class="row g-2 small">
+                    <div class="col-6 col-md-3">
+                        <div class="text-muted">Base Value (BDT)</div>
+                        <div class="fw-bold">৳{{ bill.project_base_value|floatformat:2 }}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="text-muted">VAT ({{ bill.vat_rate_percent|floatformat:2 }}%)</div>
+                        <div class="fw-bold">৳{{ bill.vat_amount|floatformat:2 }}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="text-muted">AIT ({{ bill.ait_rate_percent|floatformat:2 }}%)</div>
+                        <div class="fw-bold">৳{{ bill.ait_amount|floatformat:2 }}</div>
+                    </div>
+                    <div class="col-6 col-md-3">
+                        <div class="text-muted">Total VAT &amp; AIT</div>
+                        <div class="fw-bold">৳{{ bill.excluding_vat_ait|floatformat:2 }}</div>
+                    </div>
+                    <div class="col-12 mt-2 pt-2 border-top">
+                        <div class="text-muted fw-semibold">Total In BDT <span class="fw-normal">(Base + VAT + AIT)</span></div>
+                        <div class="fw-bold fs-5 text-primary">৳{{ bill.total_in_bdt|floatformat:2 }}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Bank Information -->
+            {% if bill.bank_name %}
+            <div class="mt-3">
+                <div class="text-muted small fw-bold text-uppercase mb-2" style="letter-spacing:.8px">
+                    <i class="bi bi-bank2 me-1 text-primary"></i>Bank Information
+                </div>
+                <div class="row g-2 small" style="background:#f8f9fa;border-radius:8px;padding:12px;">
+                    {% if bill.bank_name %}<div class="col-md-6"><span class="text-muted">Bank Name:</span> <strong>{{ bill.bank_name }}</strong></div>{% endif %}
+                    {% if bill.beneficiary %}<div class="col-md-6"><span class="text-muted">Beneficiary:</span> <strong>{{ bill.beneficiary }}</strong></div>{% endif %}
+                    {% if bill.bank_branch or bill.bank_address_line1 %}
+                    <div class="col-12">
+                        <span class="text-muted">Address:</span>
+                        {% if bill.bank_branch %}<strong>{{ bill.bank_branch }}</strong>{% endif %}
+                        {% if bill.bank_address_line1 %}, {{ bill.bank_address_line1 }}{% endif %}
+                        {% if bill.bank_address_line2 %}, {{ bill.bank_address_line2 }}{% endif %}
+                    </div>
+                    {% endif %}
+                    {% if bill.account_number %}<div class="col-md-4"><span class="text-muted">Account No:</span> <strong>{{ bill.account_number }}</strong></div>{% endif %}
+                    {% if bill.swift_code %}<div class="col-md-4"><span class="text-muted">Swift:</span> <strong>{{ bill.swift_code }}</strong></div>{% endif %}
+                    {% if bill.branch_routing_code %}<div class="col-md-4"><span class="text-muted">Routing:</span> <strong>{{ bill.branch_routing_code }}</strong></div>{% endif %}
+                    {% if bill.bin_number %}<div class="col-md-4"><span class="text-muted">BIN:</span> <strong>{{ bill.bin_number }}</strong></div>{% endif %}
+                    {% if bill.tin_number %}<div class="col-md-4"><span class="text-muted">TIN:</span> <strong>{{ bill.tin_number }}</strong></div>{% endif %}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if bill.remark %}
+            <div class="border-start border-primary border-3 ps-3 py-1 mb-3 bg-light rounded-end mt-3">
+                <div class="text-muted small fw-bold mb-1">REMARK</div>
+                <div class="small">{{ bill.remark }}</div>
+            </div>
+            {% endif %}
+
+        </div>
+    </div>
+</div>
+
+<!-- Sidebar -->
+<div class="col-lg-4">
+    <!-- Payment Info -->
+    <div class="card mb-3" style="border:none;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <div class="card-header bg-white border-0 pt-3">
+            <h6 class="fw-bold mb-0"><i class="bi bi-cash-coin me-2 text-primary"></i>Payment Info</h6>
+        </div>
+        <div class="card-body">
+            <div class="d-flex justify-content-between mb-2 small">
+                <span class="text-muted">Status</span>
+                <span class="badge badge-{{ bill.status }} px-2 rounded-pill">{{ bill.get_status_display }}</span>
+            </div>
+            {% if bill.payment_date %}
+            <div class="d-flex justify-content-between mb-2 small">
+                <span class="text-muted">Paid On</span>
+                <span class="fw-semibold">{{ bill.payment_date }}</span>
+            </div>
+            {% endif %}
+            <hr>
+            <div class="d-flex justify-content-between">
+                <span class="fw-bold">Total In BDT</span>
+                <span class="fw-bold text-primary fs-5">৳{{ bill.total_in_bdt|floatformat:2 }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- History -->
+    <div class="card" style="border:none;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <div class="card-header bg-white border-0 pt-3">
+            <h6 class="fw-bold mb-0"><i class="bi bi-clock-history me-2 text-primary"></i>History</h6>
+        </div>
+        <div class="card-body small text-muted">
+            <div>Created by
+                {% if bill.created_by %}
+                <strong class="text-dark">{{ bill.created_by.get_full_name|default:bill.created_by.username }}</strong>
+                {% elif bill.auto_generated %}
+                <strong class="text-dark">Automatic</strong> <span class="text-muted">(period sync)</span>
+                {% else %}
+                <strong class="text-dark">—</strong>
+                {% endif %}
+            </div>
+            <div>{{ bill.created_at|date:"d M Y, H:i" }}</div>
+            <hr>
+            <div>Last updated {{ bill.updated_at|date:"d M Y, H:i" }}</div>
+        </div>
+    </div>
+</div>
+
+</div>
+{% endblock %}
