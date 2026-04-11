@@ -277,6 +277,12 @@
                 <span class="text-muted">Status</span>
                 <span class="badge badge-{{ bill.status }} px-2 rounded-pill">{{ bill.get_status_display }}</span>
             </div>
+            {% if bill.submitted_on %}
+            <div class="d-flex justify-content-between mb-2 small">
+                <span class="text-muted">Submitted On</span>
+                <span class="fw-semibold">{{ bill.submitted_on }}</span>
+            </div>
+            {% endif %}
             {% if bill.payment_date %}
             <div class="d-flex justify-content-between mb-2 small">
                 <span class="text-muted">Paid On</span>

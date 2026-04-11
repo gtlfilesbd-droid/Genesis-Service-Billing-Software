@@ -716,6 +716,7 @@ def bill_submit(request, pk):
         )
         return redirect('bill_detail', pk=pk)
     bill.status = 'submitted'
+    bill.submitted_on = timezone.localdate()
     bill.save()
     inv = bill.invoice_number or bill.bill_number
     messages.success(request, f'Invoice {inv} marked as submitted (sent to client).')
@@ -743,7 +744,7 @@ def bills_submit_bulk(request):
         status='pending',
         bill_period_to__isnull=False,
         bill_period_to__lt=today,
-    ).update(status='submitted')
+    ).update(status='submitted', submitted_on=today)
     messages.success(request, f'{n} bill(s) marked as submitted.')
     return redirect('bill_queue_pending')
 

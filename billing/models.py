@@ -187,6 +187,7 @@ class Bill(models.Model):
 
     # Status & meta
     status = models.CharField(max_length=20, choices=BILL_STATUS_CHOICES, default='pending')
+    submitted_on = models.DateField(blank=True, null=True, verbose_name='Submitted on')
     payment_date = models.DateField(blank=True, null=True)
     payment_method = models.CharField(max_length=100, blank=True, null=True)
     payment_reference = models.CharField(max_length=100, blank=True, null=True)
