@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.db.models import Sum
 from clients.models import Client
 from billing.models import Bill
+from billing.sync_auto_bills import sync_billing_queues
 from accounts.models import UserProfile
 from django.utils import timezone
 
@@ -16,6 +17,7 @@ def _dashboard_profile(user):
 
 @login_required
 def dashboard(request):
+    sync_billing_queues()
     today = timezone.now().date()
     this_month_start = today.replace(day=1)
 

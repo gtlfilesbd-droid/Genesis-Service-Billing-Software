@@ -191,6 +191,11 @@ class Bill(models.Model):
     payment_method = models.CharField(max_length=100, blank=True, null=True)
     payment_reference = models.CharField(max_length=100, blank=True, null=True)
 
+    auto_generated = models.BooleanField(
+        default=False,
+        help_text='Created by period sync; invoice date follows maturity (Bill To + 1 day).',
+    )
+
     created_by = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='bills_created')
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -239,10 +244,17 @@ class Bill(models.Model):
         super().save(*args, **kwargs)
 
     def generate_bill_number(self):
+        import re
         from datetime import datetime
+
         prefix = datetime.now().strftime('INV-%Y%m-')
-        last = Bill.objects.filter(bill_number__startswith=prefix).count()
-        return f"{prefix}{str(last + 1).zfill(4)}"
+        pattern = re.compile(rf'^{re.escape(prefix)}(\d+)$')
+        max_n = 0
+        for bn in Bill.objects.filter(bill_number__startswith=prefix).values_list('bill_number', flat=True):
+            m = pattern.match(bn)
+            if m:
+                max_n = max(max_n, int(m.group(1)))
+        return f'{prefix}{str(max_n + 1).zfill(4)}'
 
     def calculate_totals(self):
         from decimal import Decimal, ROUND_HALF_UP

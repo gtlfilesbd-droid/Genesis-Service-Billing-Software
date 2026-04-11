@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required
 from django.http import HttpResponse
 from django.db.models import Sum, Count, Q
 from billing.models import Bill
+from billing.sync_auto_bills import sync_billing_queues
 from clients.models import Client
 from accounts.models import UserProfile
 from datetime import date, timedelta
@@ -26,6 +27,7 @@ def report_dashboard(request):
         from django.shortcuts import redirect
         return redirect('dashboard')
 
+    sync_billing_queues()
     today = date.today()
     year = int(request.GET.get('year', today.year))
     month = int(request.GET.get('month', today.month))

@@ -12,6 +12,7 @@ from .invoice_number import build_invoice_number_base
 from .bill_period import compute_bill_period_window, format_bill_period_line
 from clients.models import Client, Agreement, Service
 from accounts.models import UserProfile
+import calendar
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
 
@@ -122,18 +123,39 @@ def get_profile(user):
         return UserProfile.objects.create(user=user)
 
 
-def _snap_bill_invoice_to_today_on_view(bill):
-    """
-    Pending only: opening the invoice view refreshes invoice_date to today and
-    rebuilds auto invoice_number (date segment). Submitted / paid stay fixed.
-    """
-    if bill.status != 'pending':
-        return
-    today = timezone.localdate()
-    if bill.invoice_date == today:
-        return
-    bill.invoice_date = today
-    bill.save()
+def _ym_filter_from_request(request):
+    y = request.GET.get('year')
+    m = request.GET.get('month')
+    yf = int(y) if y and str(y).isdigit() else None
+    mf = int(m) if m and str(m).isdigit() and 1 <= int(m) <= 12 else None
+    return yf, mf
+
+
+def _render_queue_grouped(request, bills_base_qs, template_name, profile):
+    from .sync_auto_bills import sync_billing_queues, group_bills_by_invoice_month, year_choices_for_filter
+
+    sync_billing_queues()
+    yf, mf = _ym_filter_from_request(request)
+    bills = bills_base_qs.select_related('client')
+    if yf is not None:
+        bills = bills.filter(invoice_date__year=yf)
+    if mf is not None:
+        bills = bills.filter(invoice_date__month=mf)
+    grouped = group_bills_by_invoice_month(bills)
+    filter_years = year_choices_for_filter(bills_base_qs)
+    months_choices = [(i, calendar.month_name[i]) for i in range(1, 13)]
+    return render(
+        request,
+        template_name,
+        {
+            'grouped_bills': grouped,
+            'filter_years': filter_years,
+            'filter_year': yf,
+            'filter_month': mf,
+            'months_choices': months_choices,
+            'profile': profile,
+        },
+    )
 
 
 def _validate_bill_invoice_prerequisites(client_id, agreement_id):
@@ -259,6 +281,9 @@ def _save_bill_from_post(request, bill):
 
 @login_required
 def bill_list(request):
+    from .sync_auto_bills import sync_billing_queues
+
+    sync_billing_queues()
     bills = Bill.objects.select_related('client').all()
     status_filter = request.GET.get('status', '')
     client_filter = request.GET.get('client', '')
@@ -321,11 +346,13 @@ def bill_create(request):
 
 @login_required
 def bill_detail(request, pk):
+    from .sync_auto_bills import sync_billing_queues
+
+    sync_billing_queues()
     bill = get_object_or_404(
         Bill.objects.select_related('client', 'agreement', 'agreement__agreement_with'),
         pk=pk,
     )
-    _snap_bill_invoice_to_today_on_view(bill)
     profile = get_profile(request.user)
     return render(request, 'bills/bill_detail.html', {'bill': bill, 'profile': profile})
 
@@ -441,7 +468,6 @@ def bill_pdf(request, pk):
     try:
         import weasyprint
         bill = get_object_or_404(Bill, pk=pk)
-        _snap_bill_invoice_to_today_on_view(bill)
         html_string = render_to_string('bills/bill_pdf.html', {'bill': bill})
         pdf_file = weasyprint.HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
         response = HttpResponse(pdf_file, content_type='application/pdf')
@@ -456,7 +482,6 @@ def bill_pdf(request, pk):
 @login_required
 def bill_print(request, pk):
     bill = get_object_or_404(Bill, pk=pk)
-    _snap_bill_invoice_to_today_on_view(bill)
     return render(request, 'bills/bill_pdf.html', {'bill': bill, 'print_mode': True})
 
 
@@ -634,50 +659,26 @@ def bills_mark_paid_bulk(request):
 def bill_queue_pending(request):
     profile = get_profile(request.user)
     today = timezone.localdate()
-    bills = (
-        Bill.objects.filter(
-            status='pending',
-            bill_period_to__isnull=False,
-            bill_period_to__lt=today,
-        )
-        .select_related('client')
-        .order_by('bill_period_to', 'invoice_date', 'id')
+    base = Bill.objects.filter(
+        status='pending',
+        bill_period_to__isnull=False,
+        bill_period_to__lt=today,
     )
-    return render(
-        request,
-        'bills/bill_queue_pending.html',
-        {'bills': bills, 'profile': profile},
-    )
+    return _render_queue_grouped(request, base, 'bills/bill_queue_pending.html', profile)
 
 
 @login_required
 def bill_queue_submitted(request):
     profile = get_profile(request.user)
-    bills = (
-        Bill.objects.filter(status='submitted')
-        .select_related('client')
-        .order_by('-invoice_date', '-id')
-    )
-    return render(
-        request,
-        'bills/bill_queue_submitted.html',
-        {'bills': bills, 'profile': profile},
-    )
+    base = Bill.objects.filter(status='submitted')
+    return _render_queue_grouped(request, base, 'bills/bill_queue_submitted.html', profile)
 
 
 @login_required
 def bill_queue_paid(request):
     profile = get_profile(request.user)
-    bills = (
-        Bill.objects.filter(status='paid')
-        .select_related('client')
-        .order_by('-payment_date', '-invoice_date', '-id')
-    )
-    return render(
-        request,
-        'bills/bill_queue_paid.html',
-        {'bills': bills, 'profile': profile},
-    )
+    base = Bill.objects.filter(status='paid')
+    return _render_queue_grouped(request, base, 'bills/bill_queue_paid.html', profile)
 
 
 @login_required

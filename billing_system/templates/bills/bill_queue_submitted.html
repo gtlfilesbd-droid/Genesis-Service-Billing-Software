@@ -5,11 +5,40 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-2">
     <div>
-        <h4 class="fw-bold mb-1">Submitted <span class="text-muted small fw-normal">(sent to client — awaiting payment)</span></h4>
-        <p class="text-muted small mb-0">Mark as paid when payment is received.</p>
+        <h4 class="fw-bold mb-1">Submitted <span class="text-muted small fw-normal">(awaiting payment)</span></h4>
+        <p class="text-muted small mb-0">Grouped by invoice month/year.</p>
     </div>
     <a href="{% url 'dashboard' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-speedometer2 me-1"></i>Dashboard</a>
 </div>
+
+<form method="get" class="card border-0 shadow-sm mb-3">
+    <div class="card-body py-3">
+        <div class="row g-2 align-items-end flex-wrap">
+            <div class="col-auto">
+                <label class="form-label small text-muted mb-0">Year</label>
+                <select name="year" class="form-select form-select-sm" style="min-width:110px;">
+                    <option value="">All years</option>
+                    {% for y in filter_years %}
+                    <option value="{{ y }}" {% if filter_year == y %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto">
+                <label class="form-label small text-muted mb-0">Month</label>
+                <select name="month" class="form-select form-select-sm" style="min-width:140px;">
+                    <option value="">All months</option>
+                    {% for num, name in months_choices %}
+                    <option value="{{ num }}" {% if filter_month == num %}selected{% endif %}>{{ name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-auto d-flex gap-1">
+                <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-funnel me-1"></i>Filter</button>
+                <a href="{% url 'bill_queue_submitted' %}" class="btn btn-sm btn-outline-secondary">Reset</a>
+            </div>
+        </div>
+    </div>
+</form>
 
 {% if profile.can_edit_bill or request.user.is_superuser %}
 <form method="post" action="{% url 'bills_mark_paid_bulk' %}" id="bulkPaidForm" class="mb-0">
@@ -26,7 +55,11 @@
 </form>
 {% endif %}
 
-<div class="card table-card">
+{% for section in grouped_bills %}
+<div class="card table-card mb-4">
+    <div class="card-header bg-white border-bottom py-2">
+        <h6 class="fw-bold mb-0 text-primary"><i class="bi bi-calendar3 me-2"></i>{{ section.label }}</h6>
+    </div>
     <div class="card-body p-0">
         <div class="table-responsive">
             <table class="table table-hover mb-0">
@@ -43,7 +76,7 @@
                     </tr>
                 </thead>
                 <tbody>
-                {% for bill in bills %}
+                {% for bill in section.bills %}
                 <tr>
                     {% if profile.can_edit_bill or request.user.is_superuser %}
                     <td class="ps-3 align-middle">
@@ -67,14 +100,17 @@
                         {% endif %}
                     </td>
                 </tr>
-                {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-5">No submitted bills.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 </div>
+{% empty %}
+<div class="card table-card">
+    <div class="card-body text-center text-muted py-5">No submitted bills.</div>
+</div>
+{% endfor %}
 
 {% if profile.can_edit_bill or request.user.is_superuser %}
 <script>
