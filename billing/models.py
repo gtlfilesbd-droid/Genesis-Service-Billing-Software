@@ -9,11 +9,9 @@ from clients.models import Client, Agreement, Service
 
 
 BILL_STATUS_CHOICES = [
-    ('draft', 'Draft'),
     ('pending', 'Pending'),
     ('submitted', 'Submitted'),
     ('paid', 'Paid'),
-    ('cancelled', 'Cancelled'),
 ]
 
 
@@ -188,7 +186,7 @@ class Bill(models.Model):
     )
 
     # Status & meta
-    status = models.CharField(max_length=20, choices=BILL_STATUS_CHOICES, default='draft')
+    status = models.CharField(max_length=20, choices=BILL_STATUS_CHOICES, default='pending')
     payment_date = models.DateField(blank=True, null=True)
     payment_method = models.CharField(max_length=100, blank=True, null=True)
     payment_reference = models.CharField(max_length=100, blank=True, null=True)
@@ -262,6 +260,14 @@ class Bill(models.Model):
         self.ait_amount = (base * ait_p / Decimal('100')).quantize(q, ROUND_HALF_UP)
         self.excluding_vat_ait = self.vat_amount + self.ait_amount
         self.total_in_bdt = base + self.excluding_vat_ait
+
+    @property
+    def is_mature(self):
+        """Service period ended (today is after Bill To) — eligible for Pending queue / Submit."""
+        t = self.bill_period_to
+        if t is None:
+            return False
+        return timezone.localdate() > t
 
     @property
     def is_overdue(self):

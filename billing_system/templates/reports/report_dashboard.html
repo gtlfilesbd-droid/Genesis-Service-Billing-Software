@@ -186,7 +186,6 @@ new Chart(revenueCtx, {
 const statusCtx = document.getElementById('statusChart').getContext('2d');
 const statusColors = {
     paid: '#4CAF50', pending: '#FF9800', submitted: '#2196F3',
-    draft: '#9C27B0', cancelled: '#607D8B'
 };
 const statusLabels = Object.keys(statusData).map(k => k.charAt(0).toUpperCase() + k.slice(1));
 const statusValues = Object.values(statusData);

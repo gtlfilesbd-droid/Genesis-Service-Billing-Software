@@ -124,10 +124,10 @@ def get_profile(user):
 
 def _snap_bill_invoice_to_today_on_view(bill):
     """
-    Draft / Pending: opening the invoice view refreshes invoice_date to today and
-    rebuilds auto invoice_number (date segment). Submitted / paid / cancelled stay fixed.
+    Pending only: opening the invoice view refreshes invoice_date to today and
+    rebuilds auto invoice_number (date segment). Submitted / paid stay fixed.
     """
-    if bill.status not in ('draft', 'pending'):
+    if bill.status != 'pending':
         return
     today = timezone.localdate()
     if bill.invoice_date == today:
@@ -209,13 +209,8 @@ def _save_bill_from_post(request, bill):
         bill.remark = request.POST.get('remark', '')
         _set_billing_bank_fk_from_post(request, bill)
         _apply_bank_fields_from_post(request, bill)
-        posted = request.POST.get('status', 'draft')
-        if is_edit:
-            bill.status = posted
-        else:
-            from .bill_maturity import bill_is_mature
-
-            bill.status = 'pending' if bill_is_mature(bill) else 'draft'
+        if not is_edit:
+            bill.status = 'pending'
         if not bill.created_by_id:
             bill.created_by = request.user
         bill.save()
@@ -264,9 +259,6 @@ def _save_bill_from_post(request, bill):
 
 @login_required
 def bill_list(request):
-    from .bill_maturity import promote_mature_drafts
-
-    promote_mature_drafts()
     bills = Bill.objects.select_related('client').all()
     status_filter = request.GET.get('status', '')
     client_filter = request.GET.get('client', '')
@@ -329,9 +321,6 @@ def bill_create(request):
 
 @login_required
 def bill_detail(request, pk):
-    from .bill_maturity import promote_mature_drafts
-
-    promote_mature_drafts()
     bill = get_object_or_404(
         Bill.objects.select_related('client', 'agreement', 'agreement__agreement_with'),
         pk=pk,
@@ -449,9 +438,6 @@ def get_agreement_services(request, agreement_id):
 @login_required
 def bill_pdf(request, pk):
     from django.template.loader import render_to_string
-    from .bill_maturity import promote_mature_drafts
-
-    promote_mature_drafts()
     try:
         import weasyprint
         bill = get_object_or_404(Bill, pk=pk)
@@ -469,9 +455,6 @@ def bill_pdf(request, pk):
 
 @login_required
 def bill_print(request, pk):
-    from .bill_maturity import promote_mature_drafts
-
-    promote_mature_drafts()
     bill = get_object_or_404(Bill, pk=pk)
     _snap_bill_invoice_to_today_on_view(bill)
     return render(request, 'bills/bill_pdf.html', {'bill': bill, 'print_mode': True})
@@ -479,9 +462,6 @@ def bill_print(request, pk):
 
 @login_required
 def bill_excel(request, pk):
-    from .bill_maturity import promote_mature_drafts
-
-    promote_mature_drafts()
     try:
         import openpyxl
         from openpyxl.styles import Font, Alignment, PatternFill
@@ -586,7 +566,13 @@ def bill_submit(request, pk):
         return redirect('bill_detail', pk=pk)
     bill = get_object_or_404(Bill, pk=pk)
     if bill.status != 'pending':
-        messages.error(request, 'Only pending (mature) bills can be submitted to the client.')
+        messages.error(request, 'Only pending bills can be submitted to the client.')
+        return redirect('bill_detail', pk=pk)
+    if not bill.is_mature:
+        messages.error(
+            request,
+            'This bill is not mature yet (service period has not ended). You can submit after Bill To.',
+        )
         return redirect('bill_detail', pk=pk)
     bill.status = 'submitted'
     bill.save()
@@ -610,7 +596,13 @@ def bills_submit_bulk(request):
     if not ids:
         messages.warning(request, 'No bills selected.')
         return redirect('bill_queue_pending')
-    n = Bill.objects.filter(pk__in=ids, status='pending').update(status='submitted')
+    today = timezone.localdate()
+    n = Bill.objects.filter(
+        pk__in=ids,
+        status='pending',
+        bill_period_to__isnull=False,
+        bill_period_to__lt=today,
+    ).update(status='submitted')
     messages.success(request, f'{n} bill(s) marked as submitted.')
     return redirect('bill_queue_pending')
 
@@ -640,12 +632,14 @@ def bills_mark_paid_bulk(request):
 
 @login_required
 def bill_queue_pending(request):
-    from .bill_maturity import promote_mature_drafts
-
-    promote_mature_drafts()
     profile = get_profile(request.user)
+    today = timezone.localdate()
     bills = (
-        Bill.objects.filter(status='pending')
+        Bill.objects.filter(
+            status='pending',
+            bill_period_to__isnull=False,
+            bill_period_to__lt=today,
+        )
         .select_related('client')
         .order_by('bill_period_to', 'invoice_date', 'id')
     )
@@ -658,9 +652,6 @@ def bill_queue_pending(request):
 
 @login_required
 def bill_queue_submitted(request):
-    from .bill_maturity import promote_mature_drafts
-
-    promote_mature_drafts()
     profile = get_profile(request.user)
     bills = (
         Bill.objects.filter(status='submitted')
