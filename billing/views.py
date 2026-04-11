@@ -512,7 +512,9 @@ def bill_pdf(request, pk):
     try:
         import weasyprint
         bill = get_object_or_404(Bill, pk=pk)
-        html_string = render_to_string('bills/bill_pdf.html', {'bill': bill})
+        html_string = render_to_string(
+            'bills/bill_pdf.html', {'bill': bill, 'letterhead_print': True}
+        )
         pdf_file = weasyprint.HTML(string=html_string, base_url=request.build_absolute_uri()).write_pdf()
         response = HttpResponse(pdf_file, content_type='application/pdf')
         fname = (bill.invoice_number or bill.bill_number).replace('/', '-')
@@ -526,7 +528,11 @@ def bill_pdf(request, pk):
 @login_required
 def bill_print(request, pk):
     bill = get_object_or_404(Bill, pk=pk)
-    return render(request, 'bills/bill_pdf.html', {'bill': bill, 'print_mode': True})
+    return render(
+        request,
+        'bills/bill_pdf.html',
+        {'bill': bill, 'print_mode': True, 'letterhead_print': True},
+    )
 
 
 @login_required
