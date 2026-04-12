@@ -12,6 +12,82 @@
 .stat-icon-teal { background: #e0f2f1; color: #00695c; }
 .click-stat { text-decoration: none; color: inherit; display: block; height: 100%; }
 .click-stat:hover { opacity: 0.92; }
+
+/* Noticeable queue reminders (light red / light yellow) */
+.dash-queue-popup {
+    border-radius: 12px;
+    padding: 0.9rem 1.15rem;
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    font-size: 0.95rem;
+    line-height: 1.45;
+    animation: dashQueueGlow 2.4s ease-in-out infinite;
+}
+.dash-queue-popup .bi { font-size: 1.35rem; flex-shrink: 0; margin-top: 0.1rem; }
+.dash-queue-popup-pending {
+    --dash-glow: rgba(198, 40, 40, 0.22);
+    background: linear-gradient(105deg, #ffebee 0%, #ffcdd2 18%, #fff8f8 55%, #ffffff 100%);
+    border: 1px solid #e57373;
+    color: #6a1b1b;
+}
+.dash-queue-popup-submitted {
+    --dash-glow: rgba(245, 124, 0, 0.2);
+    background: linear-gradient(105deg, #fffde7 0%, #fff9c4 20%, #fffef5 55%, #ffffff 100%);
+    border: 1px solid #ffca28;
+    color: #6d4c00;
+}
+.dash-queue-popup a { font-weight: 700; text-decoration: underline; text-underline-offset: 2px; }
+@keyframes dashQueueGlow {
+    0%, 100% { box-shadow: 0 2px 14px var(--dash-glow); }
+    50% { box-shadow: 0 5px 26px var(--dash-glow); }
+}
+
+/* Pending / Submitted cards: noticeable pulse + slight “pop” (jolbe nibbe) */
+.dash-card-pending-live {
+    border-color: #e53935 !important;
+    animation: dashPendingCardPulse 1.35s ease-in-out infinite;
+    will-change: transform, box-shadow;
+}
+.dash-card-submitted-live {
+    border-color: #ffa000 !important;
+    animation: dashSubmittedCardPulse 1.35s ease-in-out infinite;
+    will-change: transform, box-shadow;
+}
+@keyframes dashPendingCardPulse {
+    0%, 100% {
+        background: linear-gradient(145deg, #fff8f8 0%, #ffebee 35%, #ffffff 100%);
+        box-shadow: 0 2px 10px rgba(211, 47, 47, 0.12);
+        transform: translateY(0) scale(1);
+    }
+    50% {
+        background: linear-gradient(145deg, #ffcdd2 0%, #ffebee 40%, #ffffff 100%);
+        box-shadow: 0 10px 28px rgba(211, 47, 47, 0.35);
+        transform: translateY(-4px) scale(1.03);
+    }
+}
+@keyframes dashSubmittedCardPulse {
+    0%, 100% {
+        background: linear-gradient(145deg, #fffef9 0%, #fffde7 38%, #ffffff 100%);
+        box-shadow: 0 2px 10px rgba(245, 124, 0, 0.14);
+        transform: translateY(0) scale(1);
+    }
+    50% {
+        background: linear-gradient(145deg, #fff9c4 0%, #fff8e1 45%, #ffffff 100%);
+        box-shadow: 0 10px 28px rgba(245, 124, 0, 0.32);
+        transform: translateY(-4px) scale(1.03);
+    }
+}
+@media (prefers-reduced-motion: reduce) {
+    .dash-card-pending-live,
+    .dash-card-submitted-live {
+        animation: none;
+        transform: none;
+    }
+    .dash-queue-popup {
+        animation: none;
+    }
+}
 </style>
 {% endblock %}
 
@@ -25,6 +101,27 @@
         <i class="bi bi-calendar3 me-1"></i>{% now "d M Y" %}
     </div>
 </div>
+
+{% if profile.dashboard_show_workflow_queues or request.user.is_superuser %}
+{% if pending_queue_count %}
+<div class="dash-queue-popup dash-queue-popup-pending mb-3" role="status">
+    <i class="bi bi-exclamation-circle-fill text-danger"></i>
+    <div>
+        <strong>Action needed:</strong> {{ pending_queue_count }} bill{{ pending_queue_count|pluralize }} in <strong>Pending</strong> (mature — ready to send to client).
+        <a href="{% url 'bill_queue_pending' %}" class="text-danger">Open Pending queue →</a>
+    </div>
+</div>
+{% endif %}
+{% if submitted_queue_count %}
+<div class="dash-queue-popup dash-queue-popup-submitted mb-3" role="status">
+    <i class="bi bi-hourglass-split text-warning"></i>
+    <div>
+        <strong>Awaiting payment:</strong> {{ submitted_queue_count }} submitted bill{{ submitted_queue_count|pluralize }}.
+        <a href="{% url 'bill_queue_submitted' %}" class="text-dark">Open Submitted queue →</a>
+    </div>
+</div>
+{% endif %}
+{% endif %}
 
 <!-- Stats Row 1 -->
 {% if profile.dashboard_show_financial_summary or request.user.is_superuser %}
@@ -81,17 +178,17 @@
 <div class="row g-3 mb-4">
     <div class="col-md-4 col-sm-4">
         <a href="{% url 'bill_queue_pending' %}" class="click-stat">
-            <div class="card stat-card p-3 border-start border-4 border-warning h-100">
+            <div class="card stat-card p-3 border-start border-4 h-100 {% if pending_queue_count %}border-danger dash-card-pending-live{% else %}border-warning{% endif %}">
                 <div class="text-muted small">Pending <span class="d-block text-dark fw-semibold mt-1">Mature — send to client</span></div>
-                <div class="fs-3 fw-bold text-warning">{{ pending_queue_count }}</div>
+                <div class="fs-3 fw-bold {% if pending_queue_count %}text-danger{% else %}text-warning{% endif %}">{{ pending_queue_count }}</div>
             </div>
         </a>
     </div>
     <div class="col-md-4 col-sm-4">
         <a href="{% url 'bill_queue_submitted' %}" class="click-stat">
-            <div class="card stat-card p-3 border-start border-4 border-primary h-100">
+            <div class="card stat-card p-3 border-start border-4 h-100 {% if submitted_queue_count %}border-warning dash-card-submitted-live{% else %}border-primary{% endif %}">
                 <div class="text-muted small">Submitted <span class="d-block text-dark fw-semibold mt-1">Awaiting payment</span></div>
-                <div class="fs-3 fw-bold text-primary">{{ submitted_queue_count }}</div>
+                <div class="fs-3 fw-bold {% if submitted_queue_count %}text-warning{% else %}text-primary{% endif %}">{{ submitted_queue_count }}</div>
             </div>
         </a>
     </div>
