@@ -37,7 +37,12 @@
             </div>
             <div class="col-md-2">
                 <label class="form-label mb-1">Year</label>
-                <input name="year" type="number" class="form-control" value="{{ year }}" min="2000" max="2100">
+                <select name="year" class="form-select">
+                    <option value="" {% if not year %}selected{% endif %}>All years</option>
+                    {% for y in year_options %}
+                    <option value="{{ y }}" {% if year == y %}selected{% endif %}>{{ y }}</option>
+                    {% endfor %}
+                </select>
             </div>
             <div class="col-md-2">
                 <label class="form-label mb-1">Month</label>
@@ -80,32 +85,40 @@
 <!-- Filtered summary -->
 <div class="row g-3 mb-4">
     <div class="col-md-3 col-sm-6">
+        <a class="text-decoration-none" href="?{% if client_id %}client={{ client_id }}&{% endif %}{% if year %}year={{ year }}&{% endif %}{% if month %}month={{ month }}&{% endif %}status=pending#bills-table">
         <div class="card stat-card p-3">
             <div class="text-muted small mb-1">Pending bills</div>
             <div class="fs-4 fw-bold text-warning">{{ filtered_counts.pending }}</div>
             <div class="small text-muted">৳{{ filtered_amounts.pending|floatformat:0 }}</div>
         </div>
+        </a>
     </div>
     <div class="col-md-3 col-sm-6">
+        <a class="text-decoration-none" href="?{% if client_id %}client={{ client_id }}&{% endif %}{% if year %}year={{ year }}&{% endif %}{% if month %}month={{ month }}&{% endif %}status=submitted#bills-table">
         <div class="card stat-card p-3">
             <div class="text-muted small mb-1">Submitted bills</div>
             <div class="fs-4 fw-bold text-primary">{{ filtered_counts.submitted }}</div>
             <div class="small text-muted">৳{{ filtered_amounts.submitted|floatformat:0 }}</div>
         </div>
+        </a>
     </div>
     <div class="col-md-3 col-sm-6">
+        <a class="text-decoration-none" href="?{% if client_id %}client={{ client_id }}&{% endif %}{% if year %}year={{ year }}&{% endif %}{% if month %}month={{ month }}&{% endif %}status=paid#bills-table">
         <div class="card stat-card p-3">
             <div class="text-muted small mb-1">Paid bills</div>
             <div class="fs-4 fw-bold text-success">{{ filtered_counts.paid }}</div>
             <div class="small text-muted">৳{{ filtered_amounts.paid|floatformat:0 }}</div>
         </div>
+        </a>
     </div>
     <div class="col-md-3 col-sm-6">
+        <a class="text-decoration-none" href="?{% if client_id %}client={{ client_id }}&{% endif %}{% if year %}year={{ year }}&{% endif %}{% if month %}month={{ month }}&{% endif %}#bills-table">
         <div class="card stat-card p-3">
             <div class="text-muted small mb-1">Total bills</div>
             <div class="fs-4 fw-bold text-dark">{{ filtered_counts.total }}</div>
             <div class="small text-muted">৳{{ filtered_amounts.total|floatformat:0 }}</div>
         </div>
+        </a>
     </div>
 </div>
 
@@ -114,9 +127,9 @@
     <div class="card-body">
         <div class="d-flex flex-wrap justify-content-between align-items-center gap-2">
             <div>
-                <div class="fw-bold">Year {{ year }} — Expected vs Received vs Due</div>
+                <div class="fw-bold">{% if year %}Year {{ year }}{% else %}All years{% endif %} — Expected vs Received vs Due</div>
                 <div class="text-muted small">
-                    Expected = all bills issued in {{ year }} (any status), Received = paid, Due = pending + submitted.
+                    Expected = all bills (any status), Received = paid, Due = pending + submitted.
                 </div>
             </div>
             <div class="d-flex flex-wrap gap-3">
@@ -266,7 +279,7 @@
 </div>
 
 <!-- Bills table (filtered) -->
-<div class="card chart-card mt-4">
+<div class="card chart-card mt-4" id="bills-table">
     <div class="card-header bg-white border-0 pt-3">
         <h6 class="fw-bold mb-0"><i class="bi bi-table me-2 text-primary"></i>Bills (Filtered)</h6>
     </div>

@@ -32,7 +32,8 @@ def report_dashboard(request):
 
     sync_billing_queues()
     today = date.today()
-    year = int(request.GET.get('year', today.year))
+    year_raw = (request.GET.get('year') or '').strip()
+    year = int(year_raw) if year_raw.isdigit() else None
     month_raw = (request.GET.get('month') or '').strip()
     month = int(month_raw) if month_raw.isdigit() else None
     client_raw = (request.GET.get('client') or '').strip()
@@ -45,7 +46,7 @@ def report_dashboard(request):
     filtered_qs = Bill.objects.select_related('client')
     if client_id:
         filtered_qs = filtered_qs.filter(client_id=client_id)
-    if year:
+    if year is not None:
         filtered_qs = filtered_qs.filter(invoice_date__year=year)
     if month:
         filtered_qs = filtered_qs.filter(invoice_date__month=month)
@@ -100,7 +101,9 @@ def report_dashboard(request):
     }
 
     # For "expected vs received vs due" within selected year+client (month ignored here intentionally)
-    year_qs = Bill.objects.select_related('client').filter(invoice_date__year=year)
+    year_qs = Bill.objects.select_related('client')
+    if year is not None:
+        year_qs = year_qs.filter(invoice_date__year=year)
     if client_id:
         year_qs = year_qs.filter(client_id=client_id)
     expected_year = year_qs.aggregate(t=Sum('total_in_bdt'))['t'] or 0
@@ -108,6 +111,15 @@ def report_dashboard(request):
     due_year = year_qs.filter(status__in=['pending', 'submitted']).aggregate(t=Sum('total_in_bdt'))['t'] or 0
 
     recent_bills = filtered_qs.order_by('-invoice_date', '-id')[:200]
+
+    # Year options for filter dropdown
+    year_options = list(
+        Bill.objects.order_by()
+        .values_list('invoice_date__year', flat=True)
+        .distinct()
+    )
+    year_options = [y for y in year_options if y is not None]
+    year_options.sort(reverse=True)
 
     context = {
         'profile': profile,
@@ -124,6 +136,7 @@ def report_dashboard(request):
         'client_id': client_id,
         'status': status_filter,
         'clients': Client.objects.filter(is_active=True).order_by('name'),
+        'year_options': year_options,
         'filtered_counts': filtered_counts,
         'filtered_amounts': filtered_amounts,
         'expected_year': expected_year,
