@@ -430,7 +430,7 @@ a.dash-client-row:hover {
                     <tbody>
                     {% for bill in recent_bills %}
                     <tr>
-                        <td class="ps-3"><a href="{% url 'bill_detail' bill.pk %}" class="dash-bill-link">{{ bill.bill_number }}</a></td>
+                        <td class="ps-3"><a href="{% url 'bill_detail' bill.pk %}" class="dash-bill-link">{{ bill.invoice_number|default:bill.bill_number }}</a></td>
                         <td><span class="text-dark" style="font-weight:500;">{{ bill.client.name }}</span></td>
                         <td class="text-end dash-amt text-nowrap">৳{{ bill.total_in_bdt|floatformat:0 }}</td>
                         <td>
@@ -463,7 +463,7 @@ a.dash-client-row:hover {
                     <tbody>
                     {% for bill in submitted_watch_list %}
                     <tr>
-                        <td class="ps-3"><a href="{% url 'bill_detail' bill.pk %}" class="dash-bill-link">{{ bill.bill_number }}</a></td>
+                        <td class="ps-3"><a href="{% url 'bill_detail' bill.pk %}" class="dash-bill-link">{{ bill.invoice_number|default:bill.bill_number }}</a></td>
                         <td>{{ bill.client.name }}</td>
                         <td class="dash-inv-date text-nowrap">{{ bill.invoice_date }}</td>
                     </tr>
