@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.contrib.auth.models import User
 from django.contrib.auth.admin import UserAdmin
-from .models import UserProfile
+from .models import UserProfile, AuditLog
 
 
 class UserProfileInline(admin.StackedInline):
@@ -72,6 +72,41 @@ class UserProfileAdmin(admin.ModelAdmin):
     search_fields = ('user__username', 'user__email', 'department')
     raw_id_fields = ('user',)
     fieldsets = UserProfileInline.fieldsets
+
+
+@admin.register(AuditLog)
+class AuditLogAdmin(admin.ModelAdmin):
+    list_display = ('created_at', 'user', 'action', 'target_model', 'object_pk', 'object_repr_short', 'ip_address')
+    list_filter = ('action', 'target_model', 'created_at')
+    search_fields = ('object_repr', 'object_pk', 'user__username', 'user__email')
+    date_hierarchy = 'created_at'
+    ordering = ('-created_at',)
+    readonly_fields = ('user', 'action', 'target_model', 'object_pk', 'object_repr', 'ip_address', 'created_at')
+
+    @admin.display(description='Description')
+    def object_repr_short(self, obj):
+        text = (obj.object_repr or '')[:80]
+        return text + ('…' if len(obj.object_repr or '') > 80 else '')
+
+    def _can_view_logs(self, request):
+        return request.user.is_active and request.user.is_staff and (
+            request.user.is_superuser or request.user.has_perm('accounts.view_auditlog')
+        )
+
+    def has_module_permission(self, request):
+        return self._can_view_logs(request)
+
+    def has_view_permission(self, request, obj=None):
+        return self._can_view_logs(request)
+
+    def has_add_permission(self, request):
+        return False
+
+    def has_change_permission(self, request, obj=None):
+        return False
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
 
 
 admin.site.unregister(User)

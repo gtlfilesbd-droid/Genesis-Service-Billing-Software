@@ -5,7 +5,7 @@ from django.core.paginator import Paginator
 import json
 from django.http import HttpResponse
 from .models import Client, Company, Agreement, Service
-from accounts.models import UserProfile
+from accounts.models import UserProfile, AuditLog
 
 
 def get_user_profile(user):
@@ -317,6 +317,16 @@ def client_delete(request, pk):
 
     client = get_object_or_404(Client, pk=pk)
     name = client.name
+    client_pk_str = str(client.pk)
+    ip_addr = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR')
+    AuditLog.objects.create(
+        user=request.user,
+        action=AuditLog.ACTION_DELETE,
+        target_model='Client',
+        object_pk=client_pk_str,
+        object_repr=name[:500],
+        ip_address=(ip_addr or '')[:45],
+    )
     client.delete()
     messages.success(request, f'Client "{name}" deleted successfully.')
     return redirect('client_list')

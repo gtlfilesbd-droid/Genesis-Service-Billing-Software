@@ -59,3 +59,37 @@ class UserProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.get_full_name() or self.user.username} - Profile"
+
+
+class AuditLog(models.Model):
+    """Immutable log of sensitive dashboard actions (e.g. hard deletes) for admin review."""
+
+    ACTION_DELETE = 'delete'
+
+    ACTION_CHOICES = [
+        (ACTION_DELETE, 'Delete'),
+    ]
+
+    user = models.ForeignKey(
+        User,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='audit_logs',
+        verbose_name='User',
+    )
+    action = models.CharField(max_length=32, choices=ACTION_CHOICES, db_index=True)
+    target_model = models.CharField(max_length=120, db_index=True, verbose_name='Object type')
+    object_pk = models.CharField(max_length=64, verbose_name='Object ID')
+    object_repr = models.CharField(max_length=500, blank=True, verbose_name='Description')
+    ip_address = models.CharField(max_length=45, blank=True, verbose_name='IP address')
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        verbose_name = 'Audit log'
+        verbose_name_plural = 'Audit logs'
+
+    def __str__(self):
+        who = self.user.get_username() if self.user_id else '(unknown)'
+        return f'{who} {self.action} {self.target_model} #{self.object_pk} @ {self.created_at}'
