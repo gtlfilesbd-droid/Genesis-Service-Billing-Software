@@ -69,6 +69,15 @@
                             {% if profile.can_edit_client or request.user.is_superuser %}
                             <a href="{% url 'client_edit' client.pk %}" class="btn btn-sm btn-outline-secondary" title="Edit"><i class="bi bi-pencil"></i></a>
                             {% endif %}
+                            {% if profile.can_delete_client or request.user.is_superuser %}
+                            <form method="post" action="{% url 'client_delete' client.pk %}" class="d-inline"
+                                  onsubmit="return confirm('Are you sure you want to permanently delete this client: {{ client.name|escapejs }}? This may also delete related bills/agreements.');">
+                                {% csrf_token %}
+                                <button type="submit" class="btn btn-sm btn-outline-danger" title="Delete">
+                                    <i class="bi bi-trash"></i>
+                                </button>
+                            </form>
+                            {% endif %}
                             {% if profile.can_generate_bill or request.user.is_superuser %}
                             <a href="{% url 'bill_create' %}?client={{ client.pk }}" class="btn btn-sm btn-outline-success" title="New Bill"><i class="bi bi-receipt"></i></a>
                             {% endif %}

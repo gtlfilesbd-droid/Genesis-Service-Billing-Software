@@ -305,6 +305,24 @@ def client_edit(request, pk):
 
 
 @login_required
+def client_delete(request, pk):
+    profile = get_user_profile(request.user)
+    if not profile.can_delete_client and not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to delete clients.')
+        return redirect('client_detail', pk=pk)
+
+    if request.method != 'POST':
+        messages.error(request, 'Invalid request method.')
+        return redirect('client_detail', pk=pk)
+
+    client = get_object_or_404(Client, pk=pk)
+    name = client.name
+    client.delete()
+    messages.success(request, f'Client "{name}" deleted successfully.')
+    return redirect('client_list')
+
+
+@login_required
 def agreement_add(request, client_pk):
     profile = get_user_profile(request.user)
     if not profile.can_add_client and not request.user.is_superuser:
