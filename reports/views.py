@@ -9,6 +9,7 @@ from accounts.models import UserProfile
 from datetime import date, timedelta, datetime
 from django.utils import timezone
 from decimal import Decimal
+import calendar
 import csv
 import io
 import json
@@ -44,32 +45,56 @@ def report_dashboard(request):
 
     # Base queryset for filtered reporting (invoice_date-driven)
     filtered_qs = Bill.objects.select_related('client')
+    # Scope queryset for KPIs/charts: apply client/year/month only (not status filter)
+    scope_qs = Bill.objects.select_related('client')
     if client_id:
         filtered_qs = filtered_qs.filter(client_id=client_id)
+        scope_qs = scope_qs.filter(client_id=client_id)
     if year is not None:
         filtered_qs = filtered_qs.filter(invoice_date__year=year)
+        scope_qs = scope_qs.filter(invoice_date__year=year)
     if month:
         filtered_qs = filtered_qs.filter(invoice_date__month=month)
+        scope_qs = scope_qs.filter(invoice_date__month=month)
     if status_filter:
         filtered_qs = filtered_qs.filter(status=status_filter)
 
-    # Monthly revenue for chart (last 12 months)
-    monthly_data = []
-    for i in range(11, -1, -1):
-        d = today.replace(day=1) - timedelta(days=i * 30)
-        label = d.strftime('%b %Y')
-        total = Bill.objects.filter(
-            status='paid',
-            invoice_date__year=d.year,
-            invoice_date__month=d.month
-        ).aggregate(t=Sum('total_in_bdt'))['t'] or 0
-        monthly_data.append({'label': label, 'total': float(total)})
+    # Monthly revenue for chart — reflect client/year/month filters
+    # - If year is selected: show that year's month breakdown (or single month if month selected)
+    # - Else: show rolling last 12 months, filtered by client if selected
+    chart_qs = Bill.objects.all()
+    if client_id:
+        chart_qs = chart_qs.filter(client_id=client_id)
 
-    # Status breakdown (workflow)
+    monthly_data = []
+    if year is not None:
+        months = [month] if month else list(range(1, 13))
+        for m in months:
+            label = date(year, m, 1).strftime('%b %Y')
+            total = chart_qs.filter(
+                status='paid',
+                invoice_date__year=year,
+                invoice_date__month=m,
+            ).aggregate(t=Sum('total_in_bdt'))['t'] or 0
+            monthly_data.append({'label': label, 'total': float(total)})
+        chart_title = f'Monthly Revenue ({year})' if not month else f'Monthly Revenue ({year}-{m:02d})'
+    else:
+        for i in range(11, -1, -1):
+            d = today.replace(day=1) - timedelta(days=i * 30)
+            label = d.strftime('%b %Y')
+            total = chart_qs.filter(
+                status='paid',
+                invoice_date__year=d.year,
+                invoice_date__month=d.month,
+            ).aggregate(t=Sum('total_in_bdt'))['t'] or 0
+            monthly_data.append({'label': label, 'total': float(total)})
+        chart_title = 'Monthly Revenue (Last 12 Months)'
+
+    # Status breakdown (workflow) — reflect current scope filters (client/year/month)
     status_data = {
-        'paid': Bill.objects.filter(status='paid').count(),
-        'pending': Bill.objects.filter(status='pending').count(),
-        'submitted': Bill.objects.filter(status='submitted').count(),
+        'paid': scope_qs.filter(status='paid').count(),
+        'pending': scope_qs.filter(status='pending').count(),
+        'submitted': scope_qs.filter(status='submitted').count(),
     }
 
     # Top clients
@@ -100,15 +125,19 @@ def report_dashboard(request):
         'total': filtered_qs.aggregate(t=Sum('total_in_bdt'))['t'] or 0,
     }
 
-    # For "expected vs received vs due" within selected year+client (month ignored here intentionally)
-    year_qs = Bill.objects.select_related('client')
-    if year is not None:
-        year_qs = year_qs.filter(invoice_date__year=year)
-    if client_id:
-        year_qs = year_qs.filter(client_id=client_id)
-    expected_year = year_qs.aggregate(t=Sum('total_in_bdt'))['t'] or 0
-    received_year = year_qs.filter(status='paid').aggregate(t=Sum('total_in_bdt'))['t'] or 0
-    due_year = year_qs.filter(status__in=['pending', 'submitted']).aggregate(t=Sum('total_in_bdt'))['t'] or 0
+    # Expected vs received vs due within the current scope (client/year/month)
+    expected_scope = scope_qs.aggregate(t=Sum('total_in_bdt'))['t'] or 0
+    received_scope = scope_qs.filter(status='paid').aggregate(t=Sum('total_in_bdt'))['t'] or 0
+    due_scope = scope_qs.filter(status__in=['pending', 'submitted']).aggregate(t=Sum('total_in_bdt'))['t'] or 0
+
+    if year is not None and month:
+        scope_label = f'{year}-{month:02d}'
+    elif year is not None:
+        scope_label = str(year)
+    elif month:
+        scope_label = f'All years ({calendar.month_name[month]})'
+    else:
+        scope_label = 'All years'
 
     recent_bills = filtered_qs.order_by('-invoice_date', '-id')[:200]
 
@@ -121,9 +150,31 @@ def report_dashboard(request):
     year_options = [y for y in year_options if y is not None]
     year_options.sort(reverse=True)
 
+    filters_active = bool(client_id or year is not None or month or status_filter)
+
+    # Filter-aware KPI cards (top section on the page)
+    scope_total_revenue = scope_qs.filter(status='paid').aggregate(t=Sum('total_in_bdt'))['t'] or 0
+    scope_outstanding = scope_qs.filter(status__in=['pending', 'submitted']).aggregate(t=Sum('total_in_bdt'))['t'] or 0
+    scope_total_bills = scope_qs.count()
+    scope_client_count = scope_qs.values('client_id').distinct().count()
+
+    # "This Month" KPI becomes "This period" when month/year filters are used
+    if year is None and not month:
+        period_year = today.year
+        period_month = today.month
+    else:
+        period_year = year if year is not None else today.year
+        period_month = month if month else today.month
+    scope_period_revenue = scope_qs.filter(
+        status='paid',
+        invoice_date__year=period_year,
+        invoice_date__month=period_month,
+    ).aggregate(t=Sum('total_in_bdt'))['t'] or 0
+
     context = {
         'profile': profile,
         'monthly_data_json': json.dumps(monthly_data),
+        'monthly_chart_title': chart_title,
         'status_data_json': json.dumps(status_data),
         'top_clients': top_clients,
         'total_revenue': total_revenue,
@@ -139,10 +190,19 @@ def report_dashboard(request):
         'year_options': year_options,
         'filtered_counts': filtered_counts,
         'filtered_amounts': filtered_amounts,
-        'expected_year': expected_year,
-        'received_year': received_year,
-        'due_year': due_year,
+        'expected_scope': expected_scope,
+        'received_scope': received_scope,
+        'due_scope': due_scope,
+        'expected_scope_label': scope_label,
         'recent_bills': recent_bills,
+        'filters_active': filters_active,
+        'scope_total_revenue': scope_total_revenue,
+        'scope_outstanding': scope_outstanding,
+        'scope_period_revenue': scope_period_revenue,
+        'scope_total_bills': scope_total_bills,
+        'scope_client_count': scope_client_count,
+        'scope_period_year': period_year,
+        'scope_period_month': period_month,
     }
     return render(request, 'reports/report_dashboard.html', context)
 
