@@ -24,7 +24,7 @@ def get_profile(user):
 @login_required
 def report_dashboard(request):
     profile = get_profile(request.user)
-    if not profile.can_view_reports and not request.user.is_superuser:
+    if not (profile.can_view_reports or request.user.is_superuser or request.user.is_staff):
         from django.contrib import messages
         messages.error(request, 'You do not have permission to view reports.')
         from django.shortcuts import redirect
@@ -33,7 +33,24 @@ def report_dashboard(request):
     sync_billing_queues()
     today = date.today()
     year = int(request.GET.get('year', today.year))
-    month = int(request.GET.get('month', today.month))
+    month_raw = (request.GET.get('month') or '').strip()
+    month = int(month_raw) if month_raw.isdigit() else None
+    client_raw = (request.GET.get('client') or '').strip()
+    client_id = int(client_raw) if client_raw.isdigit() else None
+    status_filter = (request.GET.get('status') or '').strip().lower()
+    if status_filter not in ('pending', 'submitted', 'paid'):
+        status_filter = ''
+
+    # Base queryset for filtered reporting (invoice_date-driven)
+    filtered_qs = Bill.objects.select_related('client')
+    if client_id:
+        filtered_qs = filtered_qs.filter(client_id=client_id)
+    if year:
+        filtered_qs = filtered_qs.filter(invoice_date__year=year)
+    if month:
+        filtered_qs = filtered_qs.filter(invoice_date__month=month)
+    if status_filter:
+        filtered_qs = filtered_qs.filter(status=status_filter)
 
     # Monthly revenue for chart (last 12 months)
     monthly_data = []
@@ -68,6 +85,30 @@ def report_dashboard(request):
         status='paid', invoice_date__year=today.year, invoice_date__month=today.month
     ).aggregate(t=Sum('total_in_bdt'))['t'] or 0
 
+    # Filtered metrics (client/month/year/status)
+    filtered_counts = {
+        'pending': filtered_qs.filter(status='pending').count(),
+        'submitted': filtered_qs.filter(status='submitted').count(),
+        'paid': filtered_qs.filter(status='paid').count(),
+        'total': filtered_qs.count(),
+    }
+    filtered_amounts = {
+        'pending': filtered_qs.filter(status='pending').aggregate(t=Sum('total_in_bdt'))['t'] or 0,
+        'submitted': filtered_qs.filter(status='submitted').aggregate(t=Sum('total_in_bdt'))['t'] or 0,
+        'paid': filtered_qs.filter(status='paid').aggregate(t=Sum('total_in_bdt'))['t'] or 0,
+        'total': filtered_qs.aggregate(t=Sum('total_in_bdt'))['t'] or 0,
+    }
+
+    # For "expected vs received vs due" within selected year+client (month ignored here intentionally)
+    year_qs = Bill.objects.select_related('client').filter(invoice_date__year=year)
+    if client_id:
+        year_qs = year_qs.filter(client_id=client_id)
+    expected_year = year_qs.aggregate(t=Sum('total_in_bdt'))['t'] or 0
+    received_year = year_qs.filter(status='paid').aggregate(t=Sum('total_in_bdt'))['t'] or 0
+    due_year = year_qs.filter(status__in=['pending', 'submitted']).aggregate(t=Sum('total_in_bdt'))['t'] or 0
+
+    recent_bills = filtered_qs.order_by('-invoice_date', '-id')[:200]
+
     context = {
         'profile': profile,
         'monthly_data_json': json.dumps(monthly_data),
@@ -79,6 +120,16 @@ def report_dashboard(request):
         'total_clients': Client.objects.filter(is_active=True).count(),
         'total_bills': Bill.objects.count(),
         'year': year,
+        'month': month,
+        'client_id': client_id,
+        'status': status_filter,
+        'clients': Client.objects.filter(is_active=True).order_by('name'),
+        'filtered_counts': filtered_counts,
+        'filtered_amounts': filtered_amounts,
+        'expected_year': expected_year,
+        'received_year': received_year,
+        'due_year': due_year,
+        'recent_bills': recent_bills,
     }
     return render(request, 'reports/report_dashboard.html', context)
 
@@ -89,6 +140,15 @@ def _export_bills_queryset(request):
     status_filter = (request.GET.get('status') or '').strip()
     if status_filter in ('paid', 'pending', 'submitted'):
         qs = qs.filter(status=status_filter)
+    client_raw = (request.GET.get('client') or '').strip()
+    if client_raw.isdigit():
+        qs = qs.filter(client_id=int(client_raw))
+    year_raw = (request.GET.get('year') or '').strip()
+    if year_raw.isdigit():
+        qs = qs.filter(invoice_date__year=int(year_raw))
+    month_raw = (request.GET.get('month') or '').strip()
+    if month_raw.isdigit():
+        qs = qs.filter(invoice_date__month=int(month_raw))
     return qs
 
 
@@ -185,7 +245,7 @@ def _excel_naive_datetime(val):
 @login_required
 def export_bills_csv(request):
     profile = get_profile(request.user)
-    if not profile.can_export_reports and not request.user.is_superuser:
+    if not (profile.can_export_reports or request.user.is_superuser or request.user.is_staff):
         from django.contrib import messages
         from django.shortcuts import redirect
         messages.error(request, 'Permission denied.')
@@ -212,7 +272,7 @@ def export_bills_csv(request):
 @login_required
 def export_bills_excel(request):
     profile = get_profile(request.user)
-    if not profile.can_export_reports and not request.user.is_superuser:
+    if not (profile.can_export_reports or request.user.is_superuser or request.user.is_staff):
         from django.contrib import messages
         from django.shortcuts import redirect
         messages.error(request, 'Permission denied.')

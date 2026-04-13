@@ -139,7 +139,7 @@
     </a>
     {% endif %}
 
-    {% if profile.can_view_reports or request.user.is_superuser %}
+    {% if profile.can_view_reports or request.user.is_superuser or request.user.is_staff %}
     <div class="nav-section">Reports</div>
     <a href="{% url 'report_dashboard' %}" class="nav-link {% if 'report' in request.resolver_match.url_name %}active{% endif %}">
         <i class="bi bi-bar-chart-line"></i> Reports
