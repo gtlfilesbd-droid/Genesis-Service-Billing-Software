@@ -58,6 +58,25 @@ class Client(models.Model):
         return self.agreements.filter(is_active=True)
 
 
+class AgreementTitlePreset(models.Model):
+    """Predefined agreement titles — managed in Django admin; users pick from the app form."""
+
+    title = models.CharField(max_length=255)
+    sort_order = models.PositiveIntegerField(default=0, help_text='Lower numbers appear first in the dropdown.')
+    is_active = models.BooleanField(default=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['sort_order', 'title']
+        verbose_name = 'Agreement title (preset)'
+        verbose_name_plural = 'Agreement title presets'
+
+    def __str__(self):
+        return self.title
+
+
 SERVICE_TYPE_CHOICES = [
     ('monthly', 'Monthly'),
     ('quarterly', 'Quarterly (3 Months)'),

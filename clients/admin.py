@@ -1,5 +1,13 @@
 from django.contrib import admin
-from .models import Company, Client, Agreement, Service
+from .models import Company, Client, Agreement, AgreementTitlePreset, Service
+
+
+@admin.register(AgreementTitlePreset)
+class AgreementTitlePresetAdmin(admin.ModelAdmin):
+    list_display = ('title', 'sort_order', 'is_active', 'updated_at')
+    list_filter = ('is_active',)
+    search_fields = ('title',)
+    ordering = ('sort_order', 'title')
 
 
 @admin.register(Company)

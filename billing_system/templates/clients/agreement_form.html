@@ -20,8 +20,25 @@
             <!-- Agreement Details -->
             <div class="row g-3 mb-4">
                 <div class="col-md-6">
-                    <label class="form-label">Agreement Title <span class="text-danger">*</span></label>
-                    <input type="text" name="title" class="form-control" value="{{ agreement.title|default:'' }}" required placeholder="e.g. Annual Service Contract 2025">
+                    <label class="form-label" for="id_title_choice">Agreement Title <span class="text-danger">*</span></label>
+                    <select name="title_choice" id="id_title_choice" class="form-select" required>
+                        <option value="">— Select agreement title —</option>
+                        {% for p in agreement_title_presets %}
+                        <option value="{{ p.pk }}" {% if selected_title_choice == p.pk|stringformat:"d" %}selected{% endif %}>{{ p.title }}</option>
+                        {% endfor %}
+                        <option value="{{ agreement_title_choice_other }}" {% if title_is_other %}selected{% endif %}>Other (custom title)</option>
+                    </select>
+                    <div id="title-custom-wrap" class="mt-2 {% if not title_is_other %}d-none{% endif %}">
+                        <label class="form-label small text-muted mb-1" for="id_title_custom">Custom title</label>
+                        <input type="text" name="title_custom" id="id_title_custom" class="form-control" maxlength="255"
+                               value="{{ posted_title_custom }}"
+                               placeholder="Enter agreement title"
+                               {% if title_is_other %}required{% endif %}
+                               autocomplete="off">
+                    </div>
+                    {% if not agreement_title_presets %}
+                    <div class="form-text text-warning small mt-1">No preset titles in admin yet — choose &quot;Other&quot; and enter a title, or ask an admin to add presets.</div>
+                    {% endif %}
                 </div>
                 <div class="col-md-6">
                     <label class="form-label">Agreement With <span class="text-danger">*</span></label>
@@ -178,6 +195,35 @@
 
 <!-- Service type options for JS -->
 <script>
+(function () {
+    const OTHER = "{{ agreement_title_choice_other|escapejs }}";
+    const sel = document.getElementById('id_title_choice');
+    const wrap = document.getElementById('title-custom-wrap');
+    const custom = document.getElementById('id_title_custom');
+    function syncTitleCustom() {
+        if (!sel || !wrap || !custom) return;
+        const isOther = sel.value === OTHER;
+        wrap.classList.toggle('d-none', !isOther);
+        custom.required = isOther;
+        if (!isOther) {
+            custom.setCustomValidity('');
+        }
+    }
+    sel?.addEventListener('change', syncTitleCustom);
+    document.querySelector('form')?.addEventListener('submit', function () {
+        if (sel && sel.value === OTHER && custom) {
+            if (!(custom.value || '').trim()) {
+                custom.setCustomValidity('Please enter a custom agreement title.');
+            } else {
+                custom.setCustomValidity('');
+            }
+        } else if (custom) {
+            custom.setCustomValidity('');
+        }
+    });
+    syncTitleCustom();
+})();
+
 const serviceTypeOptions = `{% for val, label in service_types %}<option value="{{ val }}">{{ label }}</option>{% endfor %}`;
 
 function addServiceRow() {

@@ -4,7 +4,59 @@ from django.contrib import messages
 from django.core.paginator import Paginator
 import json
 from django.http import HttpResponse
-from .models import Client, Company, Agreement, Service
+from .models import Client, Company, Agreement, AgreementTitlePreset, Service
+
+AGREEMENT_TITLE_CHOICE_OTHER = '__other__'
+
+
+def _active_agreement_title_presets():
+    return AgreementTitlePreset.objects.filter(is_active=True).order_by('sort_order', 'title')
+
+
+def _resolve_agreement_title_from_post(post):
+    choice = (post.get('title_choice') or '').strip()
+    custom = (post.get('title_custom') or '').strip()
+    if not choice:
+        return None, 'Please select an agreement title.'
+    if choice == AGREEMENT_TITLE_CHOICE_OTHER:
+        if not custom:
+            return None, 'Please enter a custom agreement title when "Other" is selected.'
+        if len(custom) > 255:
+            return None, 'Agreement title must be 255 characters or fewer.'
+        return custom, None
+    try:
+        pk = int(choice)
+    except (TypeError, ValueError):
+        return None, 'Invalid agreement title selection.'
+    preset = AgreementTitlePreset.objects.filter(pk=pk, is_active=True).first()
+    if not preset:
+        return None, 'Invalid or inactive agreement title.'
+    return preset.title, None
+
+
+def _agreement_title_display_context(agreement=None, post=None):
+    presets = _active_agreement_title_presets()
+    ctx = {
+        'agreement_title_presets': presets,
+        'agreement_title_choice_other': AGREEMENT_TITLE_CHOICE_OTHER,
+        'selected_title_choice': '',
+        'title_is_other': False,
+        'posted_title_custom': '',
+    }
+    if post is not None:
+        ctx['selected_title_choice'] = (post.get('title_choice') or '').strip()
+        ctx['title_is_other'] = ctx['selected_title_choice'] == AGREEMENT_TITLE_CHOICE_OTHER
+        ctx['posted_title_custom'] = post.get('title_custom') or ''
+        return ctx
+    if agreement and agreement.title:
+        match = presets.filter(title=agreement.title).first()
+        if match:
+            ctx['selected_title_choice'] = str(match.pk)
+        else:
+            ctx['selected_title_choice'] = AGREEMENT_TITLE_CHOICE_OTHER
+            ctx['title_is_other'] = True
+            ctx['posted_title_custom'] = agreement.title
+    return ctx
 from accounts.models import UserProfile, AuditLog
 
 
@@ -346,26 +398,42 @@ def agreement_add(request, client_pk):
         aw_id = request.POST.get('agreement_with')
         if not aw_id:
             messages.error(request, 'Please select Agreement With.')
-            return render(request, 'clients/agreement_form.html', {
+            ctx = {
                 'client': client,
                 'profile': profile,
                 'service_types': Service._meta.get_field('service_type').choices,
                 'companies': companies,
-            })
+                **_agreement_title_display_context(post=request.POST),
+            }
+            return render(request, 'clients/agreement_form.html', ctx)
         agreement_with = Company.objects.filter(pk=aw_id, is_active=True).first()
         if not agreement_with:
             messages.error(request, 'Invalid company selected for Agreement With.')
-            return render(request, 'clients/agreement_form.html', {
+            ctx = {
                 'client': client,
                 'profile': profile,
                 'service_types': Service._meta.get_field('service_type').choices,
                 'companies': companies,
-            })
+                **_agreement_title_display_context(post=request.POST),
+            }
+            return render(request, 'clients/agreement_form.html', ctx)
+
+        resolved_title, title_err = _resolve_agreement_title_from_post(request.POST)
+        if title_err:
+            messages.error(request, title_err)
+            ctx = {
+                'client': client,
+                'profile': profile,
+                'service_types': Service._meta.get_field('service_type').choices,
+                'companies': companies,
+                **_agreement_title_display_context(post=request.POST),
+            }
+            return render(request, 'clients/agreement_form.html', ctx)
 
         agreement = Agreement(
             client=client,
             agreement_with=agreement_with,
-            title=request.POST.get('title'),
+            title=resolved_title,
             start_date=request.POST.get('start_date'),
             end_date=request.POST.get('end_date') or None,
             notes=request.POST.get('notes'),
@@ -419,6 +487,7 @@ def agreement_add(request, client_pk):
         'profile': profile,
         'service_types': Service._meta.get_field('service_type').choices,
         'companies': companies,
+        **_agreement_title_display_context(),
     })
 
 
@@ -437,28 +506,46 @@ def agreement_edit(request, pk):
         aw_id = request.POST.get('agreement_with')
         if not aw_id:
             messages.error(request, 'Please select Agreement With.')
-            return render(request, 'clients/agreement_form.html', {
+            ctx = {
                 'client': client,
                 'agreement': agreement,
                 'profile': profile,
                 'service_types': Service._meta.get_field('service_type').choices,
                 'service_groups': _agreement_service_groups(agreement),
                 'companies': companies,
-            })
+                **_agreement_title_display_context(post=request.POST),
+            }
+            return render(request, 'clients/agreement_form.html', ctx)
         agreement_with = Company.objects.filter(pk=aw_id, is_active=True).first()
         if not agreement_with:
             messages.error(request, 'Invalid company selected for Agreement With.')
-            return render(request, 'clients/agreement_form.html', {
+            ctx = {
                 'client': client,
                 'agreement': agreement,
                 'profile': profile,
                 'service_types': Service._meta.get_field('service_type').choices,
                 'service_groups': _agreement_service_groups(agreement),
                 'companies': companies,
-            })
+                **_agreement_title_display_context(post=request.POST),
+            }
+            return render(request, 'clients/agreement_form.html', ctx)
+
+        resolved_title, title_err = _resolve_agreement_title_from_post(request.POST)
+        if title_err:
+            messages.error(request, title_err)
+            ctx = {
+                'client': client,
+                'agreement': agreement,
+                'profile': profile,
+                'service_types': Service._meta.get_field('service_type').choices,
+                'service_groups': _agreement_service_groups(agreement),
+                'companies': companies,
+                **_agreement_title_display_context(post=request.POST),
+            }
+            return render(request, 'clients/agreement_form.html', ctx)
 
         agreement.agreement_with = agreement_with
-        agreement.title = request.POST.get('title')
+        agreement.title = resolved_title
         agreement.start_date = request.POST.get('start_date')
         agreement.end_date = request.POST.get('end_date') or None
         agreement.notes = request.POST.get('notes')
@@ -514,6 +601,7 @@ def agreement_edit(request, pk):
         'service_types': Service._meta.get_field('service_type').choices,
         'service_groups': _agreement_service_groups(agreement),
         'companies': companies,
+        **_agreement_title_display_context(agreement=agreement),
     })
 
 
