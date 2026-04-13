@@ -601,12 +601,7 @@ async function loadItemsFromAgreement(agreementId) {
         if (services.length === 0) {
             appendAgreementItemRow('', '');
         } else {
-            services.forEach(s => {
-                const nm = (s.name || '').trim();
-                const st = (s.service_type || '').trim();
-                const label = st ? `${nm} (${st})` : nm;
-                appendAgreementItemRow(label, s.charge);
-            });
+            services.forEach(s => appendAgreementItemRow(s.name || '', s.charge));
         }
         recalc();
     } catch (e) {
