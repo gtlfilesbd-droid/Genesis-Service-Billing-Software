@@ -5,6 +5,8 @@
 {% block extra_css %}
 <style>
 .chart-card { border: none; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); }
+.scroll-area { overflow-y: auto; }
+.scroll-area.sticky-head thead th { position: sticky; top: 0; z-index: 2; background: #fff; }
 </style>
 {% endblock %}
 
@@ -207,13 +209,13 @@
 </div>
 
 <!-- Top Clients -->
-<div class="row g-3">
+<div class="row g-2 align-items-stretch">
     <div class="col-lg-6">
-        <div class="card chart-card">
+        <div class="card chart-card h-100 d-flex flex-column">
             <div class="card-header bg-white border-0 pt-3">
                 <h6 class="fw-bold mb-0"><i class="bi bi-trophy me-2 text-warning"></i>Top Clients by Revenue</h6>
             </div>
-            <div class="card-body p-0">
+            <div class="card-body p-0 flex-grow-1 scroll-area sticky-head" style="max-height: 360px;">
                 <table class="table table-hover mb-0">
                     <thead><tr><th class="ps-3">#</th><th>Client</th><th class="text-end pe-3">Revenue</th></tr></thead>
                     <tbody>
@@ -238,11 +240,11 @@
     </div>
 
     <div class="col-lg-6">
-        <div class="card chart-card">
+        <div class="card chart-card h-100 d-flex flex-column">
             <div class="card-header bg-white border-0 pt-3">
                 <h6 class="fw-bold mb-0"><i class="bi bi-download me-2 text-primary"></i>Export Options</h6>
             </div>
-            <div class="card-body">
+            <div class="card-body flex-grow-1">
                 {% if profile.can_export_reports or request.user.is_superuser or request.user.is_staff %}
                 <div class="d-grid gap-2">
                     <a href="{% url 'export_bills_csv' %}?year={{ year }}{% if month %}&month={{ month }}{% endif %}{% if client_id %}&client={{ client_id }}{% endif %}{% if status %}&status={{ status }}{% endif %}" class="btn btn-outline-secondary">
