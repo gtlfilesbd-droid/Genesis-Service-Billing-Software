@@ -11,7 +11,7 @@ from .models import Bill, BillItem, BillingBank, BillingTaxSettings
 from .invoice_number import build_invoice_number_base
 from .bill_period import compute_bill_period_window, format_bill_period_line
 from clients.models import Client, Agreement, Service
-from accounts.models import UserProfile
+from accounts.models import UserProfile, AuditLog
 import calendar
 from datetime import date, timedelta
 from decimal import Decimal, InvalidOperation
@@ -831,6 +831,20 @@ def bill_delete(request, pk):
         messages.error(request, 'Use the delete button to remove a bill.')
         return redirect('bill_detail', pk=pk)
     inv = bill.invoice_number or bill.bill_number
+    pk_str = str(bill.pk)
+    if bill.client_id:
+        object_repr = f'{inv} — {bill.client.name}'[:500]
+    else:
+        object_repr = str(inv)[:500]
+    ip_addr = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR')
+    AuditLog.objects.create(
+        user=request.user,
+        action=AuditLog.ACTION_DELETE,
+        target_model='Bill',
+        object_pk=pk_str,
+        object_repr=object_repr,
+        ip_address=(ip_addr or '')[:45],
+    )
     bill.delete()
     messages.success(request, f'Invoice {inv} deleted.')
     return redirect('bill_list')
