@@ -414,7 +414,9 @@ def bill_detail(request, pk):
         pk=pk,
     )
     profile = get_profile(request.user)
-    return render(request, 'bills/bill_detail.html', {'bill': bill, 'profile': profile})
+    ctx = {'bill': bill, 'profile': profile}
+    ctx.update(_bill_agreement_meta(bill))
+    return render(request, 'bills/bill_detail.html', ctx)
 
 
 @login_required

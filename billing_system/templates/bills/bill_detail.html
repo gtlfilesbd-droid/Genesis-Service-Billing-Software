@@ -5,30 +5,217 @@
 
 {% block extra_css %}
 <style>
-/* Excel-like items: description splits on newlines; SL/Qty/Unit/Price/Amount use rowspan */
-.bill-items-table { border-collapse: collapse; }
+:root {
+    --bill-primary: #1565C0;
+    --bill-primary-soft: #e3f2fd;
+    --bill-border: #e0e7ef;
+    --bill-text-muted: #607d8b;
+}
+/* Main document card */
+.bill-doc-card {
+    border: none;
+    border-radius: 16px;
+    box-shadow: 0 4px 24px rgba(21, 101, 192, 0.08), 0 1px 3px rgba(0,0,0,0.06);
+    overflow: hidden;
+}
+.bill-doc-card .card-body { padding: 1.75rem 1.75rem 2rem; }
+@media (min-width: 992px) {
+    .bill-doc-card .card-body { padding: 2rem 2.25rem 2.25rem; }
+}
+.bill-doc-topbar {
+    height: 4px;
+    background: linear-gradient(90deg, #1565C0, #1976D2, #42a5f5);
+    margin: -1.75rem -1.75rem 1.5rem;
+    border-radius: 16px 16px 0 0;
+}
+@media (min-width: 992px) {
+    .bill-doc-topbar { margin: -2rem -2.25rem 1.75rem; }
+}
+.bill-doc-header { margin-bottom: 1.25rem; }
+.bill-doc-brand { letter-spacing: 0.02em; }
+.bill-doc-brand .tagline { font-size: 0.8125rem; color: var(--bill-text-muted); margin-top: 0.2rem; }
+.bill-doc-invoice-badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: #1565C0;
+    background: var(--bill-primary-soft);
+    padding: 0.35rem 0.65rem;
+    border-radius: 6px;
+    margin-bottom: 0.35rem;
+}
+.bill-doc-invoice-num { font-size: 0.95rem; font-weight: 600; color: #263238; word-break: break-all; }
+.bill-doc-divider {
+    height: 1px;
+    background: linear-gradient(90deg, #1565C0 0%, rgba(21,101,192,0.15) 50%, transparent 100%);
+    margin: 0 0 1.5rem;
+    border: none;
+    opacity: 1;
+}
+/* Bill To + meta panels */
+.bill-panel {
+    height: 100%;
+    border: 1px solid var(--bill-border);
+    border-radius: 12px;
+    padding: 1.1rem 1.15rem;
+    background: #fafbfd;
+}
+.bill-panel__label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #78909c;
+    margin-bottom: 0.75rem;
+}
+.bill-panel--addr .client-name { font-size: 1.05rem; font-weight: 700; color: #1a237e; line-height: 1.3; }
+.bill-panel--addr .client-line { font-size: 0.875rem; color: #455a64; line-height: 1.5; margin-top: 0.25rem; }
+.bill-panel--addr .client-line i { color: #1565C0; opacity: 0.85; }
+.bill-kv-table { width: 100%; margin: 0; font-size: 0.875rem; border-collapse: collapse; }
+.bill-kv-table tr { border-bottom: 1px solid #eceff1; }
+.bill-kv-table tr:last-child { border-bottom: none; }
+.bill-kv-table td { padding: 0.5rem 0; vertical-align: top; }
+.bill-kv-table td:first-child {
+    width: 42%;
+    color: var(--bill-text-muted);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding-right: 0.75rem;
+}
+.bill-kv-table td:last-child { font-weight: 600; color: #263238; text-align: right; }
+/* Items table */
+.bill-items-wrap {
+    border: 1px solid var(--bill-border);
+    border-radius: 12px;
+    overflow: hidden;
+    margin-bottom: 1.25rem;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.04);
+}
+.bill-items-table { border-collapse: collapse; margin: 0; }
 .bill-items-table th,
-.bill-items-table td { border: 1px solid #212529 !important; vertical-align: middle; }
+.bill-items-table td { border: 1px solid #cfd8dc !important; vertical-align: middle; }
+.bill-items-table thead th {
+    background: linear-gradient(180deg, #1976D2 0%, #1565C0 100%) !important;
+    color: #fff !important;
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0.65rem 0.75rem !important;
+    border-color: #0d47a1 !important;
+}
+.bill-items-table tbody tr:nth-child(even) { background: #fafcfe; }
 .bill-items-table td.desc-line-cell {
     text-align: left;
     font-weight: 600;
-    padding: 8px 10px;
+    padding: 0.65rem 0.85rem;
     min-width: 200px;
+    color: #37474f;
 }
 .bill-items-table .sl-cell { width: 44px; }
 .bill-items-table .nowrap-cell { white-space: nowrap; }
-.bank-fields-box { background: #f8fafc; border: 1px solid #e9ecef; border-radius: 10px; padding: 14px; }
-.bill-signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-top: 1.75rem; padding-top: 1.25rem; border-top: 1px solid #e9ecef; }
+.bill-items-table tfoot td {
+    background: #f5f9ff !important;
+    border-top: 2px solid #1565C0 !important;
+    font-weight: 700;
+    padding: 0.75rem !important;
+}
+/* VAT / totals */
+.bill-fin-panel {
+    border: 1px solid var(--bill-border);
+    border-radius: 12px;
+    padding: 1.15rem 1.2rem 1.1rem;
+    background: linear-gradient(165deg, #f8fbff 0%, #f0f4f8 100%);
+    margin-bottom: 1.25rem;
+}
+.bill-fin-panel__title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #546e7a;
+    margin-bottom: 1rem;
+}
+.bill-fin-grid .fin-cell {
+    padding: 0.65rem 0.75rem;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid #e8eef4;
+    height: 100%;
+}
+.bill-fin-grid .fin-cell .lbl { font-size: 0.72rem; color: var(--bill-text-muted); text-transform: uppercase; letter-spacing: 0.03em; font-weight: 600; }
+.bill-fin-grid .fin-cell .val { font-size: 0.95rem; font-weight: 700; color: #263238; margin-top: 0.2rem; }
+.bill-fin-total-box {
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1px dashed #b0bec5;
+}
+.bill-fin-total-box .grand { font-size: 1.35rem; font-weight: 800; color: #0d47a1; letter-spacing: -0.02em; }
+.bill-fin-total-box .in-words { font-size: 0.8125rem; color: #546e7a; line-height: 1.45; margin-top: 0.35rem; }
+/* Bank */
+.bank-fields-box {
+    background: #fafbfd;
+    border: 1px solid var(--bill-border);
+    border-radius: 12px;
+    padding: 1rem 1.15rem;
+}
+.bank-fields-box .bf-row { padding: 0.35rem 0; border-bottom: 1px dotted #e0e7ef; }
+.bank-fields-box .bf-row:last-child { border-bottom: none; }
+.bank-fields-box .bf-key { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: #78909c; min-width: 7rem; display: inline-block; }
+.bank-fields-box .bf-val { font-size: 0.875rem; font-weight: 600; color: #263238; }
+.bank-section-title {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #546e7a;
+    margin-bottom: 0.65rem;
+}
+/* Signatures */
+.bill-signatures {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+    margin-top: 1.75rem;
+    padding: 1.25rem 1rem 0.5rem;
+    border-top: 1px solid var(--bill-border);
+    background: linear-gradient(180deg, rgba(227,242,253,0.35) 0%, transparent 100%);
+    border-radius: 0 0 12px 12px;
+    margin-left: -0.25rem;
+    margin-right: -0.25rem;
+}
 .bill-signatures .sig-cell { text-align: center; }
-.bill-signatures .sig-title { font-size: 0.8rem; font-weight: 700; color: #37474f; line-height: 1.4; margin-bottom: 0; }
+.bill-signatures .sig-title { font-size: 0.8rem; font-weight: 700; color: #37474f; line-height: 1.45; margin-bottom: 0; }
 .bill-signatures .sig-spacer { height: 4.5rem; min-height: 4.5rem; }
 .bill-signatures .sig-line {
-    border-bottom: 1px solid #424242;
-    width: 50%;
+    border-bottom: 1px solid #546e7a;
+    width: 55%;
+    max-width: 180px;
     margin: 0 auto 0.4rem;
 }
-.bill-signatures .sig-cap { font-size: 0.78rem; font-weight: 600; color: #333; }
+.bill-signatures .sig-cap { font-size: 0.75rem; font-weight: 600; color: #607d8b; }
 @media (max-width: 576px) { .bill-signatures { grid-template-columns: 1fr; } }
+/* Remark */
+.bill-remark-box {
+    border: 1px solid var(--bill-border);
+    border-left: 4px solid #1565C0;
+    border-radius: 0 10px 10px 0;
+    padding: 0.85rem 1rem;
+    background: linear-gradient(90deg, rgba(227,242,253,0.5) 0%, #fafbfd 35%);
+    margin-top: 0.5rem;
+}
+.bill-remark-box .bill-remark-label {
+    font-size: 0.68rem;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #546e7a;
+    margin-bottom: 0.35rem;
+}
+.bill-remark-box .bill-remark-body { line-height: 1.5; }
 </style>
 {% endblock %}
 
@@ -94,60 +281,59 @@
 <div class="row g-3">
 <!-- Main Invoice Panel -->
 <div class="col-lg-8">
-    <div class="card" style="border:none;border-radius:14px;box-shadow:0 2px 12px rgba(0,0,0,0.09);">
+    <div class="card bill-doc-card">
         <div class="card-body p-4">
+            <div class="bill-doc-topbar" aria-hidden="true"></div>
 
             <!-- Invoice header -->
-            <div class="d-flex justify-content-between align-items-start mb-3">
-                <div>
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-3 bill-doc-header">
+                <div class="bill-doc-brand">
                     <h4 class="fw-bold text-primary mb-0"><i class="bi bi-receipt-cutoff me-2"></i>Genesis Bill<span style="color:#64B5F6;">Soft</span></h4>
-                    <div class="text-muted small">Service Billing Management</div>
+                    <div class="tagline">Service Billing Management</div>
                 </div>
-                <div class="text-end">
-                    <div class="fs-4 fw-bold text-uppercase text-dark">Invoice</div>
-                    <div class="text-muted small"># {{ bill.invoice_number|default:bill.bill_number }}</div>
+                <div class="text-end ms-auto">
+                    <div class="bill-doc-invoice-badge">INVOICE</div>
+                    <div class="bill-doc-invoice-num"># {{ bill.invoice_number|default:bill.bill_number }}</div>
                 </div>
             </div>
-            <hr class="border-2 border-primary opacity-25 mb-3">
+            <hr class="bill-doc-divider">
 
             <!-- Bill To + Invoice Details -->
-            <div class="row mb-4">
-                <div class="col-6">
-                    <div class="text-muted small fw-bold text-uppercase mb-2" style="letter-spacing:.8px">Bill To</div>
-                    <div class="fw-bold fs-6">{{ bill.client.name }}</div>
-                    {% if bill.client.company %}<div class="text-muted small">{{ bill.client.company }}</div>{% endif %}
-                    <div class="small">{{ bill.client.address }}</div>
-                    {% if bill.client.city %}<div class="small text-muted">{{ bill.client.city }}, {{ bill.client.country }}</div>{% endif %}
-                    {% if bill.client.phone %}<div class="small text-muted"><i class="bi bi-telephone me-1"></i>{{ bill.client.phone }}</div>{% endif %}
-                    {% if bill.client.email %}<div class="small text-muted"><i class="bi bi-envelope me-1"></i>{{ bill.client.email }}</div>{% endif %}
+            <div class="row g-3 mb-4">
+                <div class="col-lg-6">
+                    <div class="bill-panel bill-panel--addr">
+                        <div class="bill-panel__label">Bill To</div>
+                        <div class="client-name">{{ bill.client.name }}</div>
+                        {% if bill.client.company %}<div class="client-line text-muted">{{ bill.client.company }}</div>{% endif %}
+                        <div class="client-line">{{ bill.client.address }}</div>
+                        {% if bill.client.city %}<div class="client-line text-muted">{{ bill.client.city }}, {{ bill.client.country }}</div>{% endif %}
+                        {% if bill.client.phone %}<div class="client-line"><i class="bi bi-telephone me-1"></i>{{ bill.client.phone }}</div>{% endif %}
+                        {% if bill.client.email %}<div class="client-line"><i class="bi bi-envelope me-1"></i>{{ bill.client.email }}</div>{% endif %}
+                    </div>
                 </div>
-                <div class="col-6">
-                    <table class="table table-sm table-borderless mb-0 small">
-                        <tr><td class="text-muted fw-semibold" width="45%">Invoice No.</td>
-                            <td class="fw-semibold">{{ bill.invoice_number|default:bill.bill_number }}</td></tr>
-                        <tr><td class="text-muted fw-semibold" width="45%">Invoice Date</td>
-                            <td class="fw-semibold">{{ bill.invoice_date }}</td></tr>
-                        {% if bill.po_date %}
-                        <tr><td class="text-muted fw-semibold">PO Date</td>
-                            <td>{{ bill.po_date }}</td></tr>
-                        {% endif %}
-                        {% if bill.bill_period_from or bill.bill_period_to %}
-                        <tr><td class="text-muted fw-semibold">Bill From</td>
-                            <td>{{ bill.bill_period_from|default:"—" }}</td></tr>
-                        <tr><td class="text-muted fw-semibold">Bill To</td>
-                            <td>{{ bill.bill_period_to|default:"—" }}</td></tr>
-                        {% elif bill.bill_period %}
-                        <tr><td class="text-muted fw-semibold">Bill Period</td>
-                            <td>{{ bill.bill_period }}</td></tr>
-                        {% endif %}
-                    </table>
+                <div class="col-lg-6">
+                    <div class="bill-panel bill-panel--meta">
+                        <div class="bill-panel__label">Invoice details</div>
+                        <table class="bill-kv-table">
+                            <tr><td>Invoice No.</td><td>{{ bill.invoice_number|default:bill.bill_number }}</td></tr>
+                            <tr><td>Invoice Date</td><td>{{ bill.invoice_date }}</td></tr>
+                            {% if bill.po_date %}<tr><td>PO Date</td><td>{{ bill.po_date }}</td></tr>{% endif %}
+                            {% if agreement_title %}<tr><td>Service name</td><td>{{ agreement_title }}</td></tr>{% endif %}
+                            {% if agreement_service_types %}<tr><td>Service type</td><td>{{ agreement_service_types }}</td></tr>{% endif %}
+                            {% if bill.bill_period_from or bill.bill_period_to %}
+                            <tr><td>Bill Period</td><td>{{ bill.bill_period_from|default:"—" }} to {{ bill.bill_period_to|default:"—" }}</td></tr>
+                            {% elif bill.bill_period %}
+                            <tr><td>Bill Period</td><td>{{ bill.bill_period }}</td></tr>
+                            {% endif %}
+                        </table>
+                    </div>
                 </div>
             </div>
 
             <!-- Items Table -->
-            <div class="table-responsive mb-3">
+            <div class="table-responsive bill-items-wrap">
                 <table class="table mb-0 bill-items-table">
-                    <thead style="background:#1565C0;color:white;">
+                    <thead>
                         <tr>
                             <th class="text-center sl-cell" width="44">SL</th>
                             <th>Description</th>
@@ -187,62 +373,68 @@
             </div>
 
             <!-- VAT & AIT Summary -->
-            <div class="bg-light rounded-3 p-3 mb-3">
-                <div class="text-muted small fw-bold text-uppercase mb-2" style="letter-spacing:.5px">VAT &amp; AIT Details</div>
-                <div class="row g-2 small">
+            <div class="bill-fin-panel">
+                <div class="bill-fin-panel__title">VAT &amp; AIT details</div>
+                <div class="row g-2 bill-fin-grid small">
                     <div class="col-6 col-md-3">
-                        <div class="text-muted">Base Value (BDT)</div>
-                        <div class="fw-bold">৳{{ bill.project_base_value|floatformat:2 }}</div>
-                    </div>
-                    <div class="col-6 col-md-3">
-                        <div class="text-muted">VAT ({{ bill.vat_rate_percent|floatformat:2 }}%)</div>
-                        <div class="fw-bold">৳{{ bill.vat_amount|floatformat:2 }}</div>
+                        <div class="fin-cell">
+                            <div class="lbl">Base value (BDT)</div>
+                            <div class="val">৳{{ bill.project_base_value|floatformat:2 }}</div>
+                        </div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <div class="text-muted">AIT ({{ bill.ait_rate_percent|floatformat:2 }}%)</div>
-                        <div class="fw-bold">৳{{ bill.ait_amount|floatformat:2 }}</div>
+                        <div class="fin-cell">
+                            <div class="lbl">VAT ({{ bill.vat_rate_percent|floatformat:2 }}%)</div>
+                            <div class="val">৳{{ bill.vat_amount|floatformat:2 }}</div>
+                        </div>
                     </div>
                     <div class="col-6 col-md-3">
-                        <div class="text-muted">Total VAT &amp; AIT</div>
-                        <div class="fw-bold">৳{{ bill.excluding_vat_ait|floatformat:2 }}</div>
+                        <div class="fin-cell">
+                            <div class="lbl">AIT ({{ bill.ait_rate_percent|floatformat:2 }}%)</div>
+                            <div class="val">৳{{ bill.ait_amount|floatformat:2 }}</div>
+                        </div>
                     </div>
-                    <div class="col-12 mt-2 pt-2 border-top">
-                        <div class="text-muted fw-semibold">Total In BDT <span class="fw-normal">(Base + VAT + AIT)</span></div>
-                        <div class="fw-bold fs-5 text-primary">৳{{ bill.total_in_bdt|floatformat:2 }}</div>
-                        <div class="small text-secondary mt-1"><span class="fw-semibold">In words:</span> {{ bill.total_in_bdt|bdt_in_words }}</div>
+                    <div class="col-6 col-md-3">
+                        <div class="fin-cell">
+                            <div class="lbl">Total VAT &amp; AIT</div>
+                            <div class="val">৳{{ bill.excluding_vat_ait|floatformat:2 }}</div>
+                        </div>
                     </div>
+                </div>
+                <div class="bill-fin-total-box">
+                    <div class="text-muted small fw-semibold text-uppercase" style="letter-spacing:.04em;">Total in BDT <span class="fw-normal text-capitalize">(base + VAT + AIT)</span></div>
+                    <div class="grand">৳{{ bill.total_in_bdt|floatformat:2 }}</div>
+                    <div class="in-words"><span class="fw-semibold text-dark">In words:</span> {{ bill.total_in_bdt|bdt_in_words }}</div>
                 </div>
             </div>
 
             <!-- Bank Information -->
             {% if bill.bank_name %}
-            <div class="mt-4">
-                <div class="text-muted small fw-bold text-uppercase mb-2" style="letter-spacing:.8px">
-                    <i class="bi bi-bank2 me-1 text-primary"></i>Bank information (For Payment)
-                </div>
-                <div class="row g-2 small bank-fields-box">
-                    {% if bill.bank_name %}<div class="col-md-6"><span class="text-muted">Bank Name:</span> <strong>{{ bill.bank_name }}</strong></div>{% endif %}
-                    {% if bill.beneficiary %}<div class="col-md-6"><span class="text-muted">Beneficiary:</span> <strong>{{ bill.beneficiary }}</strong></div>{% endif %}
-                    {% if bill.bank_branch %}<div class="col-md-6"><span class="text-muted">Branch:</span> <strong>{{ bill.bank_branch }}</strong></div>{% endif %}
+            <div class="mt-2">
+                <div class="bank-section-title"><i class="bi bi-bank2 me-1 text-primary"></i>Bank information (for payment)</div>
+                <div class="bank-fields-box small">
+                    {% if bill.bank_name %}<div class="bf-row"><span class="bf-key">Bank name</span> <span class="bf-val">{{ bill.bank_name }}</span></div>{% endif %}
+                    {% if bill.beneficiary %}<div class="bf-row"><span class="bf-key">Beneficiary</span> <span class="bf-val">{{ bill.beneficiary }}</span></div>{% endif %}
+                    {% if bill.bank_branch %}<div class="bf-row"><span class="bf-key">Branch</span> <span class="bf-val">{{ bill.bank_branch }}</span></div>{% endif %}
                     {% if bill.bank_address_line1 or bill.bank_address_line2 %}
-                    <div class="col-12">
-                        <span class="text-muted">Address:</span>
-                        <strong>{% if bill.bank_address_line1 %}{{ bill.bank_address_line1 }}{% endif %}{% if bill.bank_address_line1 and bill.bank_address_line2 %}, {% endif %}{% if bill.bank_address_line2 %}{{ bill.bank_address_line2 }}{% endif %}</strong>
+                    <div class="bf-row">
+                        <span class="bf-key">Address</span>
+                        <span class="bf-val">{% if bill.bank_address_line1 %}{{ bill.bank_address_line1 }}{% endif %}{% if bill.bank_address_line1 and bill.bank_address_line2 %}, {% endif %}{% if bill.bank_address_line2 %}{{ bill.bank_address_line2 }}{% endif %}</span>
                     </div>
                     {% endif %}
-                    {% if bill.account_number %}<div class="col-md-4"><span class="text-muted">Account No:</span> <strong>{{ bill.account_number }}</strong></div>{% endif %}
-                    {% if bill.swift_code %}<div class="col-md-4"><span class="text-muted">Swift:</span> <strong>{{ bill.swift_code }}</strong></div>{% endif %}
-                    {% if bill.branch_routing_code %}<div class="col-md-4"><span class="text-muted">Routing:</span> <strong>{{ bill.branch_routing_code }}</strong></div>{% endif %}
-                    {% if bill.bin_number %}<div class="col-md-4"><span class="text-muted">BIN:</span> <strong>{{ bill.bin_number }}</strong></div>{% endif %}
-                    {% if bill.tin_number %}<div class="col-md-4"><span class="text-muted">TIN:</span> <strong>{{ bill.tin_number }}</strong></div>{% endif %}
+                    {% if bill.account_number %}<div class="bf-row"><span class="bf-key">Account no.</span> <span class="bf-val">{{ bill.account_number }}</span></div>{% endif %}
+                    {% if bill.swift_code %}<div class="bf-row"><span class="bf-key">Swift</span> <span class="bf-val">{{ bill.swift_code }}</span></div>{% endif %}
+                    {% if bill.branch_routing_code %}<div class="bf-row"><span class="bf-key">Routing</span> <span class="bf-val">{{ bill.branch_routing_code }}</span></div>{% endif %}
+                    {% if bill.bin_number %}<div class="bf-row"><span class="bf-key">BIN</span> <span class="bf-val">{{ bill.bin_number }}</span></div>{% endif %}
+                    {% if bill.tin_number %}<div class="bf-row"><span class="bf-key">TIN</span> <span class="bf-val">{{ bill.tin_number }}</span></div>{% endif %}
                 </div>
             </div>
             {% endif %}
 
             {% if bill.remark %}
-            <div class="border-start border-primary border-3 ps-3 py-1 mb-3 bg-light rounded-end mt-3">
-                <div class="text-muted small fw-bold mb-1">REMARK</div>
-                <div class="small">{{ bill.remark }}</div>
+            <div class="bill-remark-box mb-3">
+                <div class="bill-remark-label">Remark</div>
+                <div class="small text-dark bill-remark-body">{{ bill.remark }}</div>
             </div>
             {% endif %}
 
