@@ -245,6 +245,8 @@ body.letterhead .inv-header { margin-top:28px; }
                 <tr><td>Invoice No.</td><td>{{ bill.invoice_number|default:bill.bill_number }}</td></tr>
                 <tr><td>Invoice Date</td><td>{{ bill.invoice_date }}</td></tr>
                 {% if bill.po_date %}<tr><td>PO Date</td><td>{{ bill.po_date }}</td></tr>{% endif %}
+                {% if agreement_title %}<tr><td>Agreement</td><td>{{ agreement_title }}</td></tr>{% endif %}
+                {% if agreement_service_types %}<tr><td>Service type</td><td>{{ agreement_service_types }}</td></tr>{% endif %}
                 {% if bill.bill_period_from or bill.bill_period_to %}
                 <tr><td>Bill From</td><td>{{ bill.bill_period_from|default:"—" }}</td></tr>
                 <tr><td>Bill To</td><td>{{ bill.bill_period_to|default:"—" }}</td></tr>

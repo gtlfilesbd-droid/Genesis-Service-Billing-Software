@@ -528,6 +528,24 @@ def get_agreement_services(request, agreement_id):
     return JsonResponse({'services': services, 'agreement_title': agreement.title})
 
 
+def _bill_agreement_meta(bill):
+    ag = getattr(bill, 'agreement', None)
+    if not ag:
+        return {'agreement_title': '', 'agreement_service_types': ''}
+    types = []
+    try:
+        for s in ag.services.filter(is_active=True):
+            t = (s.get_service_type_display() or '').strip()
+            if t and t not in types:
+                types.append(t)
+    except Exception:
+        types = []
+    return {
+        'agreement_title': (ag.title or '').strip(),
+        'agreement_service_types': ', '.join(types),
+    }
+
+
 @login_required
 def bill_pdf(request, pk):
     from io import BytesIO
@@ -536,9 +554,9 @@ def bill_pdf(request, pk):
 
     bill = get_object_or_404(Bill, pk=pk)
     base_url = request.build_absolute_uri('/')
-    html_string = render_to_string(
-        'bills/bill_pdf.html', {'bill': bill, 'letterhead_print': True}
-    )
+    ctx = {'bill': bill, 'letterhead_print': True}
+    ctx.update(_bill_agreement_meta(bill))
+    html_string = render_to_string('bills/bill_pdf.html', ctx)
 
     pdf_bytes = None
     try:
@@ -576,10 +594,12 @@ def bill_pdf(request, pk):
 @login_required
 def bill_print(request, pk):
     bill = get_object_or_404(Bill, pk=pk)
+    ctx = {'bill': bill, 'print_mode': True, 'letterhead_print': True}
+    ctx.update(_bill_agreement_meta(bill))
     return render(
         request,
         'bills/bill_pdf.html',
-        {'bill': bill, 'print_mode': True, 'letterhead_print': True},
+        ctx,
     )
 
 
