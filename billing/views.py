@@ -683,24 +683,6 @@ def bill_excel(request, pk):
             else:
                 ws.append([left, '', '', '', '', ''])
 
-        ws.append([])
-        ws.append(
-            [
-                'Status:',
-                bill.get_status_display(),
-                '',
-                'Submitted on:',
-                str(bill.submitted_on) if bill.submitted_on else '—',
-                '',
-            ]
-        )
-        status_row = ws.max_row
-        ws.cell(row=status_row, column=1).font = bf
-        ws.cell(row=status_row, column=4).font = bf
-        ws.append(['', '', '', 'Paid on:', str(bill.payment_date) if bill.payment_date else '—', ''])
-        pay_row = ws.max_row
-        ws.cell(row=pay_row, column=4).font = bf
-
         if (bill.service_period or '').strip():
             ws.append(['', '', '', 'Service period:', (bill.service_period or '').strip(), ''])
             sp_row = ws.max_row
