@@ -612,7 +612,11 @@ def bill_excel(request, pk):
         from openpyxl.styles import Font, Alignment, Border, Side
         from billing.money_words import bdt_amount_in_words
 
-        bill = get_object_or_404(Bill, pk=pk)
+        bill = get_object_or_404(
+            Bill.objects.select_related('client', 'agreement').prefetch_related('items'),
+            pk=pk,
+        )
+        meta = _bill_agreement_meta(bill)
         inv_disp = bill.invoice_number or bill.bill_number
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -634,19 +638,76 @@ def bill_excel(request, pk):
         ws['A2'] = f'Invoice #: {inv_disp}'
         ws['A2'].alignment = Alignment(horizontal='center')
         ws.append([])
+
         ws.append(['Bill To:', '', '', 'Invoice Details:', '', ''])
-        ws['A4'].font = bf
-        ws['D4'].font = bf
-        ws.append([bill.client.name, '', '', 'Invoice Date:', str(bill.invoice_date), ''])
-        ws.append([bill.client.address, '', '', 'PO Date:', str(bill.po_date or ''), ''])
+        hdr_row = ws.max_row
+        ws.cell(row=hdr_row, column=1).font = bf
+        ws.cell(row=hdr_row, column=4).font = bf
+
+        left_lines = [bill.client.name]
+        if bill.client.company:
+            left_lines.append(bill.client.company)
+        if bill.client.address:
+            left_lines.append(bill.client.address)
+        cc = ', '.join(x for x in [bill.client.city, bill.client.country] if x)
+        if cc:
+            left_lines.append(cc)
+        if bill.client.phone:
+            left_lines.append(f'Phone: {bill.client.phone}')
+        if bill.client.email:
+            left_lines.append(f'Email: {bill.client.email}')
+
+        right_lines = [
+            ('Invoice No.', inv_disp),
+            ('Bill ref', str(bill.bill_number)),
+            ('Invoice Date', str(bill.invoice_date)),
+            ('PO Date', str(bill.po_date or '') or '—'),
+        ]
+        if meta.get('agreement_title'):
+            right_lines.append(('Service On', meta['agreement_title']))
+        if meta.get('agreement_service_types'):
+            right_lines.append(('Service type', meta['agreement_service_types']))
         if bill.bill_period_from or bill.bill_period_to:
-            ws.append([bill.client.phone or '', '', '', 'Bill From:', str(bill.bill_period_from or ''), ''])
-            ws.append([bill.client.email or '', '', '', 'Bill To:', str(bill.bill_period_to or ''), ''])
-        else:
-            ws.append([bill.client.phone or '', '', '', 'Bill Period:', bill.bill_period or '', ''])
-            ws.append([bill.client.email or '', '', '', '', '', ''])
+            right_lines.append(
+                ('Bill Period', f'{bill.bill_period_from or "—"} to {bill.bill_period_to or "—"}')
+            )
+        elif bill.bill_period:
+            right_lines.append(('Bill Period', str(bill.bill_period)))
+
+        n = max(len(left_lines), len(right_lines))
+        for i in range(n):
+            left = left_lines[i] if i < len(left_lines) else ''
+            if i < len(right_lines):
+                rl, rv = right_lines[i]
+                ws.append([left, '', '', rl, rv, ''])
+            else:
+                ws.append([left, '', '', '', '', ''])
+
         ws.append([])
-        headers = ['#', 'Description', 'Qty', 'Unit', 'Unit Price (BDT)', 'Amount (BDT)']
+        ws.append(
+            [
+                'Status:',
+                bill.get_status_display(),
+                '',
+                'Submitted on:',
+                str(bill.submitted_on) if bill.submitted_on else '—',
+                '',
+            ]
+        )
+        status_row = ws.max_row
+        ws.cell(row=status_row, column=1).font = bf
+        ws.cell(row=status_row, column=4).font = bf
+        ws.append(['', '', '', 'Paid on:', str(bill.payment_date) if bill.payment_date else '—', ''])
+        pay_row = ws.max_row
+        ws.cell(row=pay_row, column=4).font = bf
+
+        if (bill.service_period or '').strip():
+            ws.append(['', '', '', 'Service period:', (bill.service_period or '').strip(), ''])
+            sp_row = ws.max_row
+            ws.cell(row=sp_row, column=4).font = bf
+
+        ws.append([])
+        headers = ['SL', 'Bill of Service', 'Qty', 'Unit', 'Unit Price (BDT)', 'Amount (BDT)']
         ws.append(headers)
         hr = ws.max_row
         for col in range(1, 7):
@@ -656,10 +717,26 @@ def bill_excel(request, pk):
             c.border = border_all
         first_item_row = hr + 1
         for idx, item in enumerate(bill.items.all(), 1):
-            ws.append([idx, item.description, float(item.quantity), item.unit or '', float(item.unit_price), float(item.amount)])
+            desc_lines = item.description_lines
+            for li, line in enumerate(desc_lines):
+                if li == 0:
+                    ws.append(
+                        [
+                            idx,
+                            line,
+                            float(item.quantity),
+                            item.unit or '',
+                            float(item.unit_price),
+                            float(item.amount),
+                        ]
+                    )
+                else:
+                    ws.append(['', line, '', '', '', ''])
         last_item_row = ws.max_row
         for r in range(first_item_row, last_item_row + 1):
             apply_border_row(r)
+            for c in (2,):
+                ws.cell(row=r, column=c).alignment = Alignment(wrap_text=True, vertical='top')
         ws.append([])
         ws.append(['', '', '', '', 'Items Subtotal:', float(bill.subtotal)])
         sub_row = ws.max_row
@@ -689,6 +766,17 @@ def bill_excel(request, pk):
         apply_border_row(words_row)
         ws.cell(row=words_row, column=1).font = bf
         ws.cell(row=words_row, column=2).alignment = Alignment(wrap_text=True, vertical='top')
+
+        if (bill.remark or '').strip():
+            ws.append([])
+            ws.append(['Remark'])
+            ws[f'A{ws.max_row}'].font = bf
+            ws.append([(bill.remark or '').strip(), '', '', '', '', ''])
+            rr = ws.max_row
+            ws.merge_cells(start_row=rr, start_column=1, end_row=rr, end_column=6)
+            ws.cell(row=rr, column=1).alignment = Alignment(wrap_text=True, vertical='top')
+            apply_border_row(rr)
+
         if bill.bank_name:
             ws.append([])
             ws.append(['Bank information (For Payment)'])
@@ -708,7 +796,14 @@ def bill_excel(request, pk):
             ws.append(['Branch Code (Routing):', bill.branch_routing_code or ''])
             ws.append(['BIN:', bill.bin_number or ''])
             ws.append(['TIN:', bill.tin_number or ''])
-        for col, w in zip('ABCDEF', [28, 40, 10, 14, 22, 22]):
+
+        ws.append([])
+        ws.append(['Signatures (as per printed invoice)', '', '', '', '', ''])
+        ws[f'A{ws.max_row}'].font = bf
+        ws.append(['Check By — Finance & Admin Dept.', '', '', 'Approved By — Project & Service Dept.', '', ''])
+        ws.append(['Name & signature', '', '', 'Name & signature', '', ''])
+
+        for col, w in zip('ABCDEF', [8, 42, 10, 14, 22, 22]):
             ws.column_dimensions[col].width = w
         response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
         fname = _safe_download_filename(bill.invoice_number or bill.bill_number)
