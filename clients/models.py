@@ -163,7 +163,7 @@ class Agreement(models.Model):
         """
         from decimal import Decimal, InvalidOperation
 
-        from billing.bill_period import count_monthly_anniversary_periods
+        from billing.bill_period import count_anniversary_periods, count_monthly_anniversary_periods
 
         total = Decimal('0')
         end_d = self.effective_amc_end_date()
@@ -171,7 +171,9 @@ class Agreement(models.Model):
         months_ann = (
             count_monthly_anniversary_periods(self.start_date, end_d) if self.start_date else 0
         )
-        years = self._years_in_period(self.start_date, end_d) if self.start_date else 0
+        qtrs = count_anniversary_periods(self.start_date, end_d, 3) if self.start_date else 0
+        semis = count_anniversary_periods(self.start_date, end_d, 6) if self.start_date else 0
+        ann = count_anniversary_periods(self.start_date, end_d, 12) if self.start_date else 0
 
         for s in self.services.all():
             try:
@@ -181,15 +183,14 @@ class Agreement(models.Model):
 
             st = (s.service_type or '').lower()
             if st in ('annual', 'yearly'):
-                total += charge * Decimal(years or 0)
+                # Charge treated as yearly; annual period = 12-month anniversary block.
+                total += charge * Decimal(ann or 0)
             elif st == 'monthly':
                 total += charge * Decimal(months_ann or 0)
             elif st == 'quarterly':
-                periods = (months_span + 2) // 3 if months_span else 0
-                total += charge * Decimal(periods)
+                total += charge * Decimal(qtrs or 0)
             elif st == 'semi_annual':
-                periods = (months_span + 5) // 6 if months_span else 0
-                total += charge * Decimal(periods)
+                total += charge * Decimal(semis or 0)
             elif st == 'one_time':
                 total += charge
             else:

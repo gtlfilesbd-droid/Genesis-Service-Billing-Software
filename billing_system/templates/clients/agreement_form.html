@@ -347,6 +347,22 @@ function countMonthlyAnniversaryPeriods(start, end) {
     return n;
 }
 
+/** Count completed N-month anniversary periods (quarter=3, semi=6, annual=12). */
+function countAnniversaryPeriods(start, end, monthsPerPeriod) {
+    if (!start || !end || end <= start) return 0;
+    const step = Number(monthsPerPeriod || 0);
+    if (!step || step < 1) return 0;
+    let n = 0;
+    for (let k = 0; k < 5000; k++) {
+        const ptRaw = addMonthsJs(start, (k + 1) * step);
+        const pt = new Date(ptRaw);
+        pt.setDate(pt.getDate() - 1);
+        if (pt > end) break;
+        n += 1;
+    }
+    return n;
+}
+
 function yearsInPeriod(start, end) {
     if (!start || !end || end <= start) return 0;
     let years = end.getFullYear() - start.getFullYear();
@@ -372,17 +388,17 @@ function monthlyYearlyFromType(type, charge) {
     return { monthly: c, yearly: c * 12 };
 }
 
-function rowAmcTotal(tr, monthsAnn, monthsSpan, years) {
+function rowAmcTotal(tr, monthsAnn, qtrs, semis, ann, monthsSpan, years) {
     const type = (tr.querySelector('select[name="service_type[]"]')?.value || '').toLowerCase();
     const charge = parseFloat(tr.querySelector('input[name="service_charge[]"]')?.value || '0') || 0;
 
     if (type === 'one_time') return charge;
-    if (!monthsAnn && !monthsSpan && !years) return 0;
+    if (!monthsAnn && !qtrs && !semis && !ann && !monthsSpan && !years) return 0;
 
     if (type === 'monthly') return charge * monthsAnn;
-    if (type === 'annual' || type === 'yearly') return charge * years;
-    if (type === 'quarterly') return charge * (monthsSpan ? Math.ceil(monthsSpan / 3) : 0);
-    if (type === 'semi_annual') return charge * (monthsSpan ? Math.ceil(monthsSpan / 6) : 0);
+    if (type === 'annual' || type === 'yearly') return charge * ann;
+    if (type === 'quarterly') return charge * qtrs;
+    if (type === 'semi_annual') return charge * semis;
     return charge;
 }
 
@@ -399,6 +415,9 @@ function recalcAmcTotals() {
 
     const monthsSpan = monthsInPeriod(start, end);
     const monthsAnn = countMonthlyAnniversaryPeriods(start, end);
+    const qtrs = countAnniversaryPeriods(start, end, 3);
+    const semis = countAnniversaryPeriods(start, end, 6);
+    const ann = countAnniversaryPeriods(start, end, 12);
     const years = yearsInPeriod(start, end);
 
     let grand = 0;
@@ -410,7 +429,7 @@ function recalcAmcTotals() {
         const my = monthlyYearlyFromType(type, charge);
         const monthlyAmt = my.monthly;
         const yearlyAmt = my.yearly;
-        const total = rowAmcTotal(tr, monthsAnn, monthsSpan, years);
+        const total = rowAmcTotal(tr, monthsAnn, qtrs, semis, ann, monthsSpan, years);
         grand += total;
         grandMonthly += monthlyAmt;
         grandYearly += yearlyAmt;

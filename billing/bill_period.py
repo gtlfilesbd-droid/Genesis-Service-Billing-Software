@@ -91,6 +91,29 @@ def add_months(d: date, months: int) -> date:
     return date(y, m, day)
 
 
+def count_anniversary_periods(start: date, end: date, months_per_period: int) -> int:
+    """
+    Count completed periods of fixed `months_per_period` months, starting at `start`.
+
+    For period k:
+      Bill To = add_months(start, (k+1) * months_per_period) - 1 day
+    Count while Bill To <= end.
+    """
+    if not start or not end or end < start:
+        return 0
+    if not months_per_period or months_per_period < 1:
+        return 0
+    n = 0
+    k = 0
+    while k < 5000:
+        pt = add_months(start, (k + 1) * months_per_period) - timedelta(days=1)
+        if pt > end:
+            break
+        n += 1
+        k += 1
+    return n
+
+
 def count_monthly_anniversary_periods(start: date, end: date) -> int:
     """
     Number of completed monthly anniversary periods whose Bill To falls within [start, end].
@@ -98,17 +121,7 @@ def count_monthly_anniversary_periods(start: date, end: date) -> int:
     Count k while Bill To <= end.
     Example: 15 Mar 2026 – 15 Mar 2027 → 12 periods (Bill To of period 11 = 14 Mar 2027 ≤ 15 Mar 2027).
     """
-    if not start or not end or end < start:
-        return 0
-    n = 0
-    k = 0
-    while k < 5000:
-        pt = add_months(start, k + 1) - timedelta(days=1)
-        if pt > end:
-            break
-        n += 1
-        k += 1
-    return n
+    return count_anniversary_periods(start, end, 1)
 
 
 def _clip_to_agreement(frm: date, to: date, agreement) -> tuple[date | None, date | None]:

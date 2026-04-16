@@ -125,7 +125,7 @@ def client_detail(request, pk):
     agreements = client.agreements.select_related('agreement_with').prefetch_related('services').all()
     service_type_choices = dict(Service._meta.get_field('service_type').choices)
     # Each Service row may contain multiple names (one per line).
-    from billing.bill_period import count_monthly_anniversary_periods
+    from billing.bill_period import count_anniversary_periods, count_monthly_anniversary_periods
 
     for ag in agreements:
         end_d = ag.effective_amc_end_date()
@@ -133,7 +133,9 @@ def client_detail(request, pk):
         months_ann = (
             count_monthly_anniversary_periods(ag.start_date, end_d) if ag.start_date else 0
         )
-        years = Agreement._years_in_period(ag.start_date, end_d) if ag.start_date else 0
+        qtrs = count_anniversary_periods(ag.start_date, end_d, 3) if ag.start_date else 0
+        semis = count_anniversary_periods(ag.start_date, end_d, 6) if ag.start_date else 0
+        ann = count_anniversary_periods(ag.start_date, end_d, 12) if ag.start_date else 0
         ag.grouped_services = []
         ag.total_monthly_amount = 0
         ag.total_yearly_amount = 0
@@ -167,15 +169,13 @@ def client_detail(request, pk):
                 yearly_amount = charge * Decimal('12')
 
             if st in ('annual', 'yearly'):
-                total_amc = charge * Decimal(years or 0)
+                total_amc = charge * Decimal(ann or 0)
             elif st == 'monthly':
                 total_amc = monthly_amount * Decimal(months_ann or 0)
             elif st == 'quarterly':
-                periods = (months_span + 2) // 3 if months_span else 0
-                total_amc = charge * Decimal(periods)
+                total_amc = charge * Decimal(qtrs or 0)
             elif st == 'semi_annual':
-                periods = (months_span + 5) // 6 if months_span else 0
-                total_amc = charge * Decimal(periods)
+                total_amc = charge * Decimal(semis or 0)
             elif st == 'one_time':
                 total_amc = charge
             else:
@@ -218,7 +218,7 @@ def agreement_sheet_excel(request, pk):
         pk=pk,
     )
 
-    from billing.bill_period import count_monthly_anniversary_periods
+    from billing.bill_period import count_anniversary_periods, count_monthly_anniversary_periods
 
     end_d = agreement.effective_amc_end_date()
     months_span = (
@@ -229,7 +229,9 @@ def agreement_sheet_excel(request, pk):
         if agreement.start_date
         else 0
     )
-    years = Agreement._years_in_period(agreement.start_date, end_d) if agreement.start_date else 0
+    qtrs = count_anniversary_periods(agreement.start_date, end_d, 3) if agreement.start_date else 0
+    semis = count_anniversary_periods(agreement.start_date, end_d, 6) if agreement.start_date else 0
+    ann = count_anniversary_periods(agreement.start_date, end_d, 12) if agreement.start_date else 0
 
     service_type_choices = dict(Service._meta.get_field('service_type').choices)
 
@@ -282,7 +284,7 @@ def agreement_sheet_excel(request, pk):
         if st in ('annual', 'yearly'):
             monthly_amt = charge / 12 if charge else 0
             yearly_amt = charge
-            total_amt = charge * (years or 0)
+            total_amt = charge * (ann or 0)
         elif st == 'monthly':
             monthly_amt = charge
             yearly_amt = charge * 12
@@ -290,13 +292,11 @@ def agreement_sheet_excel(request, pk):
         elif st == 'quarterly':
             monthly_amt = charge / 3 if charge else 0
             yearly_amt = charge * 4
-            periods = (months_span + 2) // 3 if months_span else 0
-            total_amt = charge * periods
+            total_amt = charge * (qtrs or 0)
         elif st == 'semi_annual':
             monthly_amt = charge / 6 if charge else 0
             yearly_amt = charge * 2
-            periods = (months_span + 5) // 6 if months_span else 0
-            total_amt = charge * periods
+            total_amt = charge * (semis or 0)
         elif st == 'one_time':
             monthly_amt = charge
             yearly_amt = charge
