@@ -54,8 +54,8 @@
                     <input type="date" name="start_date" class="form-control" value="{% if agreement and agreement.start_date %}{{ agreement.start_date|date:'Y-m-d' }}{% endif %}" required>
                 </div>
                 <div class="col-md-3">
-                    <label class="form-label">End Date</label>
-                    <input type="date" name="end_date" class="form-control" value="{% if agreement and agreement.end_date %}{{ agreement.end_date|date:'Y-m-d' }}{% endif %}">
+                    <label class="form-label">End Date <span class="text-danger">*</span></label>
+                    <input type="date" name="end_date" class="form-control" value="{% if agreement and agreement.end_date %}{{ agreement.end_date|date:'Y-m-d' }}{% endif %}" required>
                 </div>
                 <div class="col-12">
                     <label class="form-label">Notes</label>

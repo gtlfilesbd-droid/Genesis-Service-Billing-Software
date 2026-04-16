@@ -446,6 +446,17 @@ def agreement_add(request, client_pk):
             }
             return render(request, 'clients/agreement_form.html', ctx)
 
+        if not (request.POST.get('end_date') or '').strip():
+            messages.error(request, 'Please select End Date.')
+            ctx = {
+                'client': client,
+                'profile': profile,
+                'service_types': Service._meta.get_field('service_type').choices,
+                'companies': companies,
+                **_agreement_title_display_context(post=request.POST),
+            }
+            return render(request, 'clients/agreement_form.html', ctx)
+
         agreement = Agreement(
             client=client,
             agreement_with=agreement_with,
@@ -549,6 +560,19 @@ def agreement_edit(request, pk):
         resolved_title, title_err = _resolve_agreement_title_from_post(request.POST)
         if title_err:
             messages.error(request, title_err)
+            ctx = {
+                'client': client,
+                'agreement': agreement,
+                'profile': profile,
+                'service_types': Service._meta.get_field('service_type').choices,
+                'service_groups': _agreement_service_groups(agreement),
+                'companies': companies,
+                **_agreement_title_display_context(post=request.POST),
+            }
+            return render(request, 'clients/agreement_form.html', ctx)
+
+        if not (request.POST.get('end_date') or '').strip():
+            messages.error(request, 'Please select End Date.')
             ctx = {
                 'client': client,
                 'agreement': agreement,
