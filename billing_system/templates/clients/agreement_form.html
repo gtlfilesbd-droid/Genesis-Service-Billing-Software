@@ -321,6 +321,32 @@ function monthsInPeriod(start, end) {
     return Math.max(months, 0);
 }
 
+/** Match billing.bill_period.add_months (calendar months, day clamped). */
+function addMonthsJs(d, n) {
+    const y = d.getFullYear() + Math.floor((d.getMonth() + n) / 12);
+    const m = ((d.getMonth() + n) % 12 + 12) % 12;
+    const last = new Date(y, m + 1, 0).getDate();
+    const day = Math.min(d.getDate(), last);
+    return new Date(y, m, day);
+}
+
+/**
+ * Match billing.bill_period.count_monthly_anniversary_periods.
+ * Bill To of period k = addMonthsJs(start, k+1) - 1 day.  Count while Bill To <= end.
+ */
+function countMonthlyAnniversaryPeriods(start, end) {
+    if (!start || !end || end <= start) return 0;
+    let n = 0;
+    for (let k = 0; k < 5000; k++) {
+        const ptRaw = addMonthsJs(start, k + 1);
+        const pt = new Date(ptRaw);
+        pt.setDate(pt.getDate() - 1);           // Bill To = mature_date - 1 day
+        if (pt > end) break;
+        n += 1;
+    }
+    return n;
+}
+
 function yearsInPeriod(start, end) {
     if (!start || !end || end <= start) return 0;
     let years = end.getFullYear() - start.getFullYear();
@@ -346,17 +372,17 @@ function monthlyYearlyFromType(type, charge) {
     return { monthly: c, yearly: c * 12 };
 }
 
-function rowAmcTotal(tr, months, years) {
+function rowAmcTotal(tr, monthsAnn, monthsSpan, years) {
     const type = (tr.querySelector('select[name="service_type[]"]')?.value || '').toLowerCase();
     const charge = parseFloat(tr.querySelector('input[name="service_charge[]"]')?.value || '0') || 0;
 
-    if (!months && !years) return 0;
-
-    if (type === 'monthly') return charge * months;
-    if (type === 'annual' || type === 'yearly') return charge * years;
-    if (type === 'quarterly') return charge * (months ? Math.ceil(months / 3) : 0);
-    if (type === 'semi_annual') return charge * (months ? Math.ceil(months / 6) : 0);
     if (type === 'one_time') return charge;
+    if (!monthsAnn && !monthsSpan && !years) return 0;
+
+    if (type === 'monthly') return charge * monthsAnn;
+    if (type === 'annual' || type === 'yearly') return charge * years;
+    if (type === 'quarterly') return charge * (monthsSpan ? Math.ceil(monthsSpan / 3) : 0);
+    if (type === 'semi_annual') return charge * (monthsSpan ? Math.ceil(monthsSpan / 6) : 0);
     return charge;
 }
 
@@ -364,10 +390,15 @@ function recalcAmcTotals() {
     const startEl = document.querySelector('input[name="start_date"]');
     const endEl = document.querySelector('input[name="end_date"]');
     const start = parseDate(startEl?.value);
-    const end = parseDate(endEl?.value);
+    let end = parseDate(endEl?.value);
+    // Open-ended: match backend — estimate AMC through today (same as Agreement.effective_amc_end_date).
+    if (!end) {
+        end = new Date();
+        end.setHours(0, 0, 0, 0);
+    }
 
-    // If end date is empty, show 0 totals (user asked AMC period start-to-end)
-    const months = monthsInPeriod(start, end);
+    const monthsSpan = monthsInPeriod(start, end);
+    const monthsAnn = countMonthlyAnniversaryPeriods(start, end);
     const years = yearsInPeriod(start, end);
 
     let grand = 0;
@@ -379,7 +410,7 @@ function recalcAmcTotals() {
         const my = monthlyYearlyFromType(type, charge);
         const monthlyAmt = my.monthly;
         const yearlyAmt = my.yearly;
-        const total = rowAmcTotal(tr, months, years);
+        const total = rowAmcTotal(tr, monthsAnn, monthsSpan, years);
         grand += total;
         grandMonthly += monthlyAmt;
         grandYearly += yearlyAmt;

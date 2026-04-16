@@ -5,13 +5,13 @@ Each yielded period has period_to < today (mature). Invoice date = day after per
 from __future__ import annotations
 
 from datetime import date, timedelta
-import calendar
 
 from .bill_period import (
     _clip_to_agreement,
     _half_range,
     _quarter_range,
     _one_time_range,
+    add_months,
     primary_service_type,
 )
 
@@ -21,25 +21,27 @@ def _invoice_date_after_period(period_to: date) -> date:
 
 
 def iter_monthly_periods(agreement, today: date):
+    """
+    Anniversary months: period k = [add_months(start,k), add_months(start,k+1)-1].
+    Mature date (= invoice date) = add_months(start,k+1) = c_pt + 1 day.
+    Yield when c_pt + 1 <= today  i.e.  c_pt < today.
+    """
     start = agreement.start_date
-    end_inc = agreement.end_date
-    y, m = start.year, start.month
-    for _ in range(800):
-        first = date(y, m, 1)
-        last_day = calendar.monthrange(y, m)[1]
-        last = date(y, m, last_day)
-        if end_inc and first > end_inc:
+    if not start:
+        return
+    k = 0
+    while k < 5000:
+        pf = add_months(start, k)
+        pt = add_months(start, k + 1) - timedelta(days=1)
+        clipped = _clip_to_agreement(pf, pt, agreement)
+        c_pf, c_pt = clipped
+        if c_pf is None or c_pt is None:
             break
-        pf = max(start, first)
-        pt = min(end_inc, last) if end_inc else last
-        if pf <= pt and pt < today:
-            yield (pf, pt, _invoice_date_after_period(pt))
-        if m == 12:
-            y, m = y + 1, 1
+        if c_pt < today:
+            yield (c_pf, c_pt, _invoice_date_after_period(c_pt))
         else:
-            m += 1
-        if y > today.year + 3:
             break
+        k += 1
 
 
 def iter_quarterly_periods(agreement, today: date):

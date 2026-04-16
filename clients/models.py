@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.utils import timezone
 
 
 class Company(models.Model):
@@ -114,6 +115,15 @@ class Agreement(models.Model):
     def __str__(self):
         return f"{self.client.name} - {self.title}"
 
+    def effective_amc_end_date(self):
+        """
+        AMC / month-count uses agreement end when set; otherwise today's date
+        so open-ended agreements show a non-zero running total (estimate).
+        """
+        if self.end_date:
+            return self.end_date
+        return timezone.now().date()
+
     @staticmethod
     def _months_in_period(start_date, end_date):
         """
@@ -152,9 +162,16 @@ class Agreement(models.Model):
         - one_time: charge
         """
         from decimal import Decimal, InvalidOperation
+
+        from billing.bill_period import count_monthly_anniversary_periods
+
         total = Decimal('0')
-        months = self._months_in_period(self.start_date, self.end_date) if self.end_date else 0
-        years = self._years_in_period(self.start_date, self.end_date) if self.end_date else 0
+        end_d = self.effective_amc_end_date()
+        months_span = self._months_in_period(self.start_date, end_d) if self.start_date else 0
+        months_ann = (
+            count_monthly_anniversary_periods(self.start_date, end_d) if self.start_date else 0
+        )
+        years = self._years_in_period(self.start_date, end_d) if self.start_date else 0
 
         for s in self.services.all():
             try:
@@ -166,12 +183,12 @@ class Agreement(models.Model):
             if st in ('annual', 'yearly'):
                 total += charge * Decimal(years or 0)
             elif st == 'monthly':
-                total += charge * Decimal(months or 0)
+                total += charge * Decimal(months_ann or 0)
             elif st == 'quarterly':
-                periods = (months + 2) // 3 if months else 0
+                periods = (months_span + 2) // 3 if months_span else 0
                 total += charge * Decimal(periods)
             elif st == 'semi_annual':
-                periods = (months + 5) // 6 if months else 0
+                periods = (months_span + 5) // 6 if months_span else 0
                 total += charge * Decimal(periods)
             elif st == 'one_time':
                 total += charge

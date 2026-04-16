@@ -1,30 +1,29 @@
 """
-Bill From / Bill To: the last *completed* billing cycle before the invoice month,
-clipped to agreement dates. Anchor = invoice date (billing month).
+Bill From / Bill To + auto-bill periods (monthly): **anniversary months** from
+agreement start_date.
 
-- Monthly: previous calendar month (e.g. invoice Apr 2026 → 01 Mar – 31 Mar 2026).
-- Quarterly: previous calendar quarter (e.g. invoice Apr 2026 → 01 Jan – 31 Mar 2026).
-- Semi-annual: previous Jan–Jun or Jul–Dec block (e.g. invoice Apr 2026 → 01 Jul – 31 Dec 2025).
-- Annual: previous calendar year (e.g. invoice 2026 → 01 Jan – 31 Dec 2025).
-- One-time: agreement start_date through end_date (or start if open-ended).
+  Period k:  pf = add_months(start, k)
+             pt = add_months(start, k+1) - 1 day
+  Mature / Invoice date = pt + 1 day = add_months(start, k+1)
 
-If multiple active services exist, the first by id sets the cadence (same as single-row convention).
+  Example  start 15 Mar 2026:
+    period 0 → 15 Mar – 14 Apr 2026,  mature 15 Apr 2026
+    period 1 → 15 Apr – 14 May 2026,  mature 15 May 2026
+
+  Example  start 1 Apr 2026:
+    period 0 → 1 Apr – 30 Apr 2026,   mature 1 May 2026
+
+  AMC: 15 Mar 2026 – 15 Mar 2027 = 12 complete periods (pt ≤ end_date) = 12 × charge.
+
+Quarterly / semi-annual / annual: calendar blocks + clip (unchanged).
+One-time: agreement start_date through end_date (or start if open-ended).
+
+If multiple active services exist, the first by id sets the cadence.
 """
 from datetime import date, timedelta
 import calendar
 
 from django.utils.dateparse import parse_date
-
-
-def _first_day_month(d: date) -> date:
-    return date(d.year, d.month, 1)
-
-
-def _prev_month_closed_range(ref: date) -> tuple[date, date]:
-    first = _first_day_month(ref)
-    last_prev = first - timedelta(days=1)
-    first_prev = date(last_prev.year, last_prev.month, 1)
-    return first_prev, last_prev
 
 
 def _quarter_index(month: int) -> int:
@@ -83,6 +82,35 @@ def _one_time_range(agreement) -> tuple[date, date]:
     return s, e
 
 
+def add_months(d: date, months: int) -> date:
+    """Add whole calendar months; day clamped to last day of target month (e.g. 31 Jan +1 → 28/29 Feb)."""
+    y = d.year + (d.month - 1 + months) // 12
+    m = (d.month - 1 + months) % 12 + 1
+    last = calendar.monthrange(y, m)[1]
+    day = min(d.day, last)
+    return date(y, m, day)
+
+
+def count_monthly_anniversary_periods(start: date, end: date) -> int:
+    """
+    Number of completed monthly anniversary periods whose Bill To falls within [start, end].
+    Bill To of period k = add_months(start, k+1) - 1 day.
+    Count k while Bill To <= end.
+    Example: 15 Mar 2026 – 15 Mar 2027 → 12 periods (Bill To of period 11 = 14 Mar 2027 ≤ 15 Mar 2027).
+    """
+    if not start or not end or end < start:
+        return 0
+    n = 0
+    k = 0
+    while k < 5000:
+        pt = add_months(start, k + 1) - timedelta(days=1)
+        if pt > end:
+            break
+        n += 1
+        k += 1
+    return n
+
+
 def _clip_to_agreement(frm: date, to: date, agreement) -> tuple[date | None, date | None]:
     if not agreement.start_date:
         return None, None
@@ -94,6 +122,74 @@ def _clip_to_agreement(frm: date, to: date, agreement) -> tuple[date | None, dat
     if start > end:
         return None, None
     return start, end
+
+
+def _monthly_anniversary_period_for_invoice(agreement, ref: date) -> tuple[date | None, date | None]:
+    """
+    Find the anniversary period whose Bill To (= add_months(anchor,k+1)-1) is strictly
+    before ref (invoice date = mature date = add_months(anchor,k+1) = Bill To + 1 day).
+    Returns the latest such completed period clipped to the agreement.
+    """
+    anchor = agreement.start_date
+    if not anchor or ref <= anchor:
+        return None, None
+    best: tuple[date | None, date | None] = (None, None)
+    k = 0
+    while k < 5000:
+        pf = add_months(anchor, k)
+        pt = add_months(anchor, k + 1) - timedelta(days=1)
+        cpf, cpt = _clip_to_agreement(pf, pt, agreement)
+        if cpf is None or cpt is None:
+            break
+        if ref > cpt:           # ref >= cpt+1 == mature date → period completed
+            best = (cpf, cpt)
+        else:
+            break
+        k += 1
+    return best
+
+
+def _current_quarter_slice(ref: date) -> tuple[date, date]:
+    q = _quarter_index(ref.month)
+    return _quarter_range(ref.year, q)
+
+
+def _quarterly_period_for_invoice(agreement, ref: date) -> tuple[date | None, date | None]:
+    m1, m2 = _prev_quarter_closed_range(ref)
+    bf, bt = _clip_to_agreement(m1, m2, agreement)
+    if bf is not None:
+        return bf, bt
+    if not agreement.start_date or ref < agreement.start_date:
+        return None, None
+    c1, c2 = _current_quarter_slice(ref)
+    return _clip_to_agreement(c1, c2, agreement)
+
+
+def _current_halfyear_slice(ref: date) -> tuple[date, date]:
+    h = _half_index(ref.month)
+    return _half_range(ref.year, h)
+
+
+def _semi_annual_period_for_invoice(agreement, ref: date) -> tuple[date | None, date | None]:
+    m1, m2 = _prev_half_closed_range(ref)
+    bf, bt = _clip_to_agreement(m1, m2, agreement)
+    if bf is not None:
+        return bf, bt
+    if not agreement.start_date or ref < agreement.start_date:
+        return None, None
+    c1, c2 = _current_halfyear_slice(ref)
+    return _clip_to_agreement(c1, c2, agreement)
+
+
+def _annual_period_for_invoice(agreement, ref: date) -> tuple[date | None, date | None]:
+    m1, m2 = _prev_year_closed_range(ref)
+    bf, bt = _clip_to_agreement(m1, m2, agreement)
+    if bf is not None:
+        return bf, bt
+    if not agreement.start_date or ref < agreement.start_date:
+        return None, None
+    c1, c2 = date(ref.year, 1, 1), date(ref.year, 12, 31)
+    return _clip_to_agreement(c1, c2, agreement)
 
 
 def primary_service_type(agreement) -> str:
@@ -121,22 +217,19 @@ def compute_bill_period_window(agreement, invoice_date) -> tuple[date | None, da
     st = primary_service_type(agreement).lower().replace('-', '_')
 
     if st == 'monthly':
-        frm, to = _prev_month_closed_range(ref)
-    elif st == 'quarterly':
-        frm, to = _prev_quarter_closed_range(ref)
-    elif st == 'semi_annual':
-        frm, to = _prev_half_closed_range(ref)
-    elif st in ('annual', 'yearly'):
-        frm, to = _prev_year_closed_range(ref)
-    elif st == 'one_time':
+        return _monthly_anniversary_period_for_invoice(agreement, ref)
+    if st == 'quarterly':
+        return _quarterly_period_for_invoice(agreement, ref)
+    if st == 'semi_annual':
+        return _semi_annual_period_for_invoice(agreement, ref)
+    if st in ('annual', 'yearly'):
+        return _annual_period_for_invoice(agreement, ref)
+    if st == 'one_time':
         frm, to = _one_time_range(agreement)
         if frm is None:
             return None, None
         return _clip_to_agreement(frm, to, agreement)
-    else:
-        frm, to = _prev_month_closed_range(ref)
-
-    return _clip_to_agreement(frm, to, agreement)
+    return _monthly_anniversary_period_for_invoice(agreement, ref)
 
 
 def format_bill_period_line(frm: date | None, to: date | None) -> str:
