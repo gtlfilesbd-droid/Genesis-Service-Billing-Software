@@ -57,6 +57,12 @@
                     <label class="form-label">End Date <span class="text-danger">*</span></label>
                     <input type="date" name="end_date" class="form-control" value="{% if agreement and agreement.end_date %}{{ agreement.end_date|date:'Y-m-d' }}{% endif %}" required>
                 </div>
+                <div class="col-md-6 d-flex align-items-end">
+                    <div class="form-text ms-md-2 mb-2" style="font-size:.92rem;">
+                        <span class="text-muted">Duration:</span>
+                        <span class="fw-semibold text-dark" id="agreementDurationText">—</span>
+                    </div>
+                </div>
                 <div class="col-12">
                     <label class="form-label">Notes</label>
                     <textarea name="notes" class="form-control" rows="2" placeholder="Optional notes...">{{ agreement.notes|default:'' }}</textarea>
@@ -372,6 +378,66 @@ function yearsInPeriod(start, end) {
     return Math.max(years, 0);
 }
 
+function _normalizeDateOnly(d) {
+    if (!d) return null;
+    const x = new Date(d);
+    x.setHours(0, 0, 0, 0);
+    return x;
+}
+
+/**
+ * Duration shown as "X months, Y days" based on anniversary month-add logic:
+ * months = max m where addMonthsJs(start, m) <= end; days = remaining days.
+ */
+function diffMonthsDays(start, end) {
+    const s = _normalizeDateOnly(start);
+    const e = _normalizeDateOnly(end);
+    if (!s || !e || e < s) return null;
+    // Month counting matches billing maturity periods:
+    // Bill To for m months = addMonthsJs(start, m) - 1 day (except m=0 baseline at start)
+    function billToForMonths(m) {
+        if (!m) return _normalizeDateOnly(s); // 0 months baseline
+        const x = _normalizeDateOnly(addMonthsJs(s, m));
+        if (!x) return null;
+        x.setDate(x.getDate() - 1);
+        return x;
+    }
+
+    let m = 0;
+    for (let k = 0; k < 5000; k++) {
+        const candidate = billToForMonths(m + 1);
+        if (candidate && candidate <= e) {
+            m += 1;
+        } else {
+            break;
+        }
+    }
+
+    const anchorEnd = billToForMonths(m);
+    const msPerDay = 24 * 60 * 60 * 1000;
+    // Days rule:
+    // - If months == 0, show inclusive days from start..end (end-start+1).
+    // - If months  > 0, show extra days after the last completed Bill To (end - BillTo).
+    const rawDays = anchorEnd ? Math.round((e - anchorEnd) / msPerDay) : 0;
+    const days = Math.max(0, m === 0 ? rawDays + 1 : rawDays);
+    return { months: m, days };
+}
+
+function updateAgreementDurationText() {
+    const el = document.getElementById('agreementDurationText');
+    if (!el) return;
+    const startEl = document.querySelector('input[name="start_date"]');
+    const endEl = document.querySelector('input[name="end_date"]');
+    const s = parseDate(startEl?.value);
+    const e = parseDate(endEl?.value);
+    const d = diffMonthsDays(s, e);
+    if (!d) {
+        el.textContent = '—';
+        return;
+    }
+    el.textContent = `${d.months} months, ${d.days} days`;
+}
+
 function formatBDT(n) {
     const v = Number(n || 0);
     return '৳' + v.toLocaleString('en-IN', { maximumFractionDigits: 0 });
@@ -419,6 +485,8 @@ function recalcAmcTotals() {
     const semis = countAnniversaryPeriods(start, end, 6);
     const ann = countAnniversaryPeriods(start, end, 12);
     const years = yearsInPeriod(start, end);
+
+    updateAgreementDurationText();
 
     let grand = 0;
     let grandMonthly = 0;
@@ -476,5 +544,6 @@ document.addEventListener('change', (e) => {
 });
 
 recalcAmcTotals();
+updateAgreementDurationText();
 </script>
 {% endblock %}
