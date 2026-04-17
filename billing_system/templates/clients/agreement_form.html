@@ -57,20 +57,16 @@
                     <label class="form-label">End Date <span class="text-danger">*</span></label>
                     <input type="date" name="end_date" class="form-control" value="{% if agreement and agreement.end_date %}{{ agreement.end_date|date:'Y-m-d' }}{% endif %}" required>
                 </div>
-                <div class="col-md-6 d-flex align-items-end">
-                    <div class="row g-2 w-100 ms-md-1 mb-2 align-items-end">
-                        <div class="col-sm-6 col-lg-5">
-                            <label class="form-label mb-1" for="agreementMonthsSelect">End Date Set by months</label>
-                            <select id="agreementMonthsSelect" class="form-select">
-                                <option value="">— Select months —</option>
-                            </select>
-                        </div>
-                        <div class="col-sm-6 col-lg-7 d-flex align-items-end">
-                            <div class="form-text mb-1" style="font-size:.95rem;">
-                                <span class="text-muted">Duration:</span>
-                                <span class="fw-semibold text-dark" id="agreementDurationText">—</span>
-                            </div>
-                        </div>
+                <div class="col-md-3">
+                    <label class="form-label" for="agreementMonthsSelect">End Date Set by months</label>
+                    <select id="agreementMonthsSelect" class="form-select">
+                        <option value="">— Select months —</option>
+                    </select>
+                </div>
+                <div class="col-md-3 d-flex align-items-end">
+                    <div class="form-text mb-2" style="font-size:.95rem;">
+                        <span class="text-muted">Duration:</span>
+                        <span class="fw-semibold text-dark" id="agreementDurationText">—</span>
                     </div>
                 </div>
                 <div class="col-12">
