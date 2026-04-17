@@ -226,7 +226,7 @@ class Bill(models.Model):
         if not self.bill_number:
             self.bill_number = self.generate_bill_number()
         update_fields = kwargs.get('update_fields')
-        # Full save only: auto invoice # from client/agreement/date (new bills). Edit form can skip via flag.
+        # Full save only: auto invoice # from client/agreement/date.
         if (
             update_fields is None
             and self.agreement_id

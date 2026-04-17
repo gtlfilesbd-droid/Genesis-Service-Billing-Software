@@ -217,14 +217,12 @@ def _save_bill_from_post(request, bill):
         inv = bill.invoice_date
 
         if is_edit:
-            bill._skip_auto_invoice_number = True
+            # Allow invoice_number to stay in sync with invoice_date on edits.
+            bill._skip_auto_invoice_number = False
             # If user edits a pending auto-generated bill, treat it as manual going forward
             # so the auto-sync job doesn't override invoice_date/invoice_number.
             if getattr(bill, 'auto_generated', False):
                 bill.auto_generated = False
-            inv_num = (request.POST.get('invoice_number') or '').strip()
-            if inv_num:
-                bill.invoice_number = inv_num
             po_raw = request.POST.get('po_date')
             bill.po_date = parse_date(po_raw) if po_raw else None
             # Pending bill edits must not change client/agreement/bill-period to avoid duplicates.
@@ -456,27 +454,12 @@ def bill_edit(request, pk):
             ctx.update(_bill_form_extra_context(bill))
             return render(request, 'bills/bill_form.html', ctx)
 
-        # Enforce editable invoice date/number window:
-        # invoice_date and the DDMMMYY segment inside invoice_number must be within
-        # [current_mature_date, next_mature_date - 1] where:
-        #   current_mature_date = bill.bill_period_to + 1 day
-        #   next_mature_date    = current_mature_date + cadence months (monthly=1, quarterly=3, semi=6, annual=12)
+        # Enforce invoice date rule:
+        # Invoice Date must not be before the current Bill Mature Date (= Bill To + 1 day).
+        # No upper cap — users may submit multiple matured bills together later.
         if is_edit and bill.bill_period_to and bill.agreement_id:
-            import re
             from datetime import timedelta
-            from .bill_period import add_months, primary_service_type
-
             current_mature = bill.bill_period_to + timedelta(days=1)
-            cadence = (primary_service_type(bill.agreement) or 'monthly').lower().replace('-', '_')
-            cadence_months = {
-                'monthly': 1,
-                'quarterly': 3,
-                'semi_annual': 6,
-                'annual': 12,
-                'yearly': 12,
-            }.get(cadence, 1)
-            next_mature = add_months(current_mature, cadence_months) if cadence != 'one_time' else None
-            max_allowed = (next_mature - timedelta(days=1)) if next_mature else None
 
             posted_inv = parse_date(request.POST.get('invoice_date') or '')
             if not posted_inv:
@@ -487,83 +470,6 @@ def bill_edit(request, pk):
                     request,
                     f'Invoice Date cannot be before Bill Mature Date ({current_mature}).',
                 )
-                ctx = {
-                    'bill': bill, 'clients': clients, 'profile': profile,
-                    'today': date.today(),
-                    'status_choices': Bill._meta.get_field('status').choices,
-                    'action': 'Edit',
-                }
-                ctx.update(_bill_form_extra_context(bill))
-                return render(request, 'bills/bill_form.html', ctx)
-            if max_allowed and posted_inv > max_allowed:
-                messages.error(
-                    request,
-                    f'Invoice Date must be on/before {max_allowed} (before next Bill Mature Date).',
-                )
-                ctx = {
-                    'bill': bill, 'clients': clients, 'profile': profile,
-                    'today': date.today(),
-                    'status_choices': Bill._meta.get_field('status').choices,
-                    'action': 'Edit',
-                }
-                ctx.update(_bill_form_extra_context(bill))
-                return render(request, 'bills/bill_form.html', ctx)
-
-            inv_num = (request.POST.get('invoice_number') or '').strip()
-            m = re.search(r'(\d{1,2})([A-Za-z]{3})(\d{2})', inv_num)
-            if not m:
-                messages.error(request, 'Invoice Number must contain a date like 15APR26.')
-                ctx = {
-                    'bill': bill, 'clients': clients, 'profile': profile,
-                    'today': date.today(),
-                    'status_choices': Bill._meta.get_field('status').choices,
-                    'action': 'Edit',
-                }
-                ctx.update(_bill_form_extra_context(bill))
-                return render(request, 'bills/bill_form.html', ctx)
-            dd = int(m.group(1))
-            mon = m.group(2).upper()
-            yy = int(m.group(3))
-            month_map = {
-                'JAN': 1, 'FEB': 2, 'MAR': 3, 'APR': 4, 'MAY': 5, 'JUN': 6,
-                'JUL': 7, 'AUG': 8, 'SEP': 9, 'OCT': 10, 'NOV': 11, 'DEC': 12,
-            }
-            if mon not in month_map:
-                messages.error(request, 'Invoice Number date segment month must be JAN..DEC (e.g. 15APR26).')
-                ctx = {
-                    'bill': bill, 'clients': clients, 'profile': profile,
-                    'today': date.today(),
-                    'status_choices': Bill._meta.get_field('status').choices,
-                    'action': 'Edit',
-                }
-                ctx.update(_bill_form_extra_context(bill))
-                return render(request, 'bills/bill_form.html', ctx)
-            try:
-                inv_dt_in_num = date(2000 + yy, month_map[mon], dd)
-            except ValueError:
-                inv_dt_in_num = None
-            if not inv_dt_in_num:
-                messages.error(request, 'Invoice Number date segment is invalid.')
-                ctx = {
-                    'bill': bill, 'clients': clients, 'profile': profile,
-                    'today': date.today(),
-                    'status_choices': Bill._meta.get_field('status').choices,
-                    'action': 'Edit',
-                }
-                ctx.update(_bill_form_extra_context(bill))
-                return render(request, 'bills/bill_form.html', ctx)
-            if inv_dt_in_num != posted_inv:
-                messages.error(request, 'Invoice Number date must match Invoice Date.')
-                ctx = {
-                    'bill': bill, 'clients': clients, 'profile': profile,
-                    'today': date.today(),
-                    'status_choices': Bill._meta.get_field('status').choices,
-                    'action': 'Edit',
-                }
-                ctx.update(_bill_form_extra_context(bill))
-                return render(request, 'bills/bill_form.html', ctx)
-            if inv_dt_in_num < current_mature or (max_allowed and inv_dt_in_num > max_allowed):
-                messages.error(request, 'Invoice Number date must be within the allowed mature-date window.')
                 ctx = {
                     'bill': bill, 'clients': clients, 'profile': profile,
                     'today': date.today(),

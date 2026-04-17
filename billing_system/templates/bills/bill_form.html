@@ -159,13 +159,13 @@
             <div class="col-12">
                 <label class="form-label">Invoice Number <span class="req">*</span>
                     {% if action == 'Edit' %}
-                    <span class="text-muted fw-normal text-lowercase" style="font-size:0.72rem;">(change if needed; must stay unique)</span>
+                    <span class="text-muted fw-normal text-lowercase" style="font-size:0.72rem;">(auto from invoice date)</span>
                     {% else %}
                     <span class="text-muted fw-normal text-lowercase" style="font-size:0.72rem;">(auto)</span>
                     {% endif %}
                 </label>
                 {% if action == 'Edit' %}
-                <input type="text" name="invoice_number" class="form-control fw-semibold" id="invoiceNumberField" required maxlength="150"
+                <input type="text" name="invoice_number" class="form-control bg-light fw-semibold" id="invoiceNumberField" readonly required maxlength="150"
                     value="{{ bill.invoice_number|default:bill.bill_number }}"
                     placeholder="Invoice number"
                     autocomplete="off">
@@ -674,7 +674,6 @@ if (cp) { const s=document.getElementById('clientSelect'); if(s) s.value=cp; }
 
 let _previewTimer;
 function refreshInvoicePreview() {
-    if (BILL_FORM_IS_EDIT) return;
     const field = document.getElementById('invoiceNumberField');
     if (!field) return;
     const client = document.getElementById('clientSelect')?.value;
