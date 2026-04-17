@@ -873,6 +873,42 @@ def bill_submit(request, pk):
 
 
 @login_required
+def bill_set_invoice_today(request, pk):
+    """
+    Bill detail shortcut (pending bills): set invoice_date to today and auto-sync invoice_number.
+    Enforces: today must be >= bill mature date (bill_period_to + 1 day).
+    """
+    if request.method != 'POST':
+        return redirect('bill_detail', pk=pk)
+    profile = get_profile(request.user)
+    if not profile.can_edit_bill and not request.user.is_superuser:
+        messages.error(request, 'You do not have permission to edit bills.')
+        return redirect('bill_detail', pk=pk)
+    bill = get_object_or_404(Bill, pk=pk)
+    if bill.status != 'pending':
+        messages.error(request, 'Only pending bills can be updated here.')
+        return redirect('bill_detail', pk=pk)
+    if not bill.bill_period_to:
+        messages.error(request, 'Bill Period is missing; cannot compute bill mature date.')
+        return redirect('bill_detail', pk=pk)
+    today = timezone.localdate()
+    mature = bill.bill_period_to + timedelta(days=1)
+    if today < mature:
+        messages.error(request, f'Invoice Date cannot be before Bill Mature Date ({mature}).')
+        return redirect('bill_detail', pk=pk)
+    # Make it manual so auto-sync doesn't override later
+    if getattr(bill, 'auto_generated', False):
+        bill.auto_generated = False
+    bill.invoice_date = today
+    # allow auto invoice_number generation on full save
+    bill._skip_auto_invoice_number = False
+    bill.save()
+    inv = bill.invoice_number or bill.bill_number
+    messages.success(request, f'Invoice Date set to {today} (Invoice {inv} updated).')
+    return redirect('bill_detail', pk=pk)
+
+
+@login_required
 def bills_submit_bulk(request):
     if request.method != 'POST':
         return redirect('bill_queue_pending')

@@ -235,6 +235,28 @@
         <a href="{% url 'bill_edit' bill.pk %}" class="btn btn-outline-secondary">
             <i class="bi bi-pencil me-1"></i>Edit
         </a>
+        {% if bill.is_mature %}
+        <form method="post" action="{% url 'bill_set_invoice_today' bill.pk %}" class="d-inline" id="setInvoiceTodayForm">
+            {% csrf_token %}
+            <div class="form-check form-check-inline ms-1 align-middle">
+                <input class="form-check-input" type="checkbox" id="setInvoiceTodayChk">
+                <label class="form-check-label small text-muted" for="setInvoiceTodayChk">
+                    Set invoice date to today
+                </label>
+            </div>
+        </form>
+        <script>
+        (function () {
+            const chk = document.getElementById('setInvoiceTodayChk');
+            const form = document.getElementById('setInvoiceTodayForm');
+            if (!chk || !form) return;
+            chk.addEventListener('change', () => {
+                if (!chk.checked) return;
+                form.submit();
+            });
+        })();
+        </script>
+        {% endif %}
         {% endif %}
         {% endif %}
         {% if profile.can_submit_bill or request.user.is_superuser %}
