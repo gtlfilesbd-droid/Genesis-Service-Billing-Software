@@ -149,7 +149,7 @@
             <div class="col-md-6">
                 <label class="form-label">PO Date <span class="req">*</span></label>
                 {% if action == 'Edit' %}
-                <input type="date" name="po_date" id="poDateIn" class="form-control"
+                <input type="date" name="po_date" id="poDateIn" class="form-control bg-light" readonly
                     value="{% if bill and bill.po_date %}{{ bill.po_date|date:'Y-m-d' }}{% endif %}">
                 {% else %}
                 <input type="date" name="po_date" id="poDateIn" class="form-control" readonly required

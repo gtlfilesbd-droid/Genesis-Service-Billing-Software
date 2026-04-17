@@ -223,8 +223,7 @@ def _save_bill_from_post(request, bill):
             # so the auto-sync job doesn't override invoice_date/invoice_number.
             if getattr(bill, 'auto_generated', False):
                 bill.auto_generated = False
-            po_raw = request.POST.get('po_date')
-            bill.po_date = parse_date(po_raw) if po_raw else None
+            # PO Date locked on edit (derived from agreement on create)
             # Pending bill edits must not change client/agreement/bill-period to avoid duplicates.
             # Keep existing bill_period_from/to as-is.
             bill.bill_period = format_bill_period_line(bill.bill_period_from, bill.bill_period_to)
