@@ -121,6 +121,46 @@
             #sidebar.show { transform: translateX(0); }
             #main-content { margin-left: 0; }
         }
+
+        /* Flash messages (alerts) */
+        .flash-messages {
+            width: 100%;
+            margin: 0;
+        }
+        .flash-messages .alert {
+            border-radius: 14px;
+            border: 1px solid rgba(0,0,0,0.06);
+            box-shadow: 0 6px 18px rgba(15, 23, 42, 0.08);
+            padding: 12px 14px;
+        }
+        .flash-messages .alert .msg-row {
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+        }
+        .flash-messages .alert .msg-ico {
+            flex: 0 0 auto;
+            width: 22px;
+            height: 22px;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 8px;
+            margin-top: 1px;
+        }
+        .flash-messages .alert .msg-txt {
+            flex: 1 1 auto;
+            line-height: 1.35;
+            font-weight: 600;
+        }
+        .flash-messages .alert .btn-close {
+            margin-left: 10px;
+        }
+        /* Tag-specific polish */
+        .flash-messages .alert-success .msg-ico { background: rgba(46,125,50,0.12); color: #2e7d32; }
+        .flash-messages .alert-danger  .msg-ico { background: rgba(211,47,47,0.12); color: #c62828; }
+        .flash-messages .alert-warning .msg-ico { background: rgba(245,127,23,0.14); color: #ef6c00; }
+        .flash-messages .alert-info    .msg-ico { background: rgba(21,101,192,0.12); color: #1565c0; }
     </style>
     {% block extra_css %}{% endblock %}
 </head>
@@ -210,13 +250,52 @@
 
     <!-- Messages -->
     <div class="page-content pb-0">
-        {% for msg in messages %}
-        <div class="alert alert-{{ msg.tags|default:'info' }} alert-dismissible fade show" role="alert">
-            <i class="bi bi-{% if msg.tags == 'success' %}check-circle{% elif msg.tags == 'error' %}x-circle{% else %}info-circle{% endif %} me-2"></i>
-            {{ msg }}
-            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        <div class="flash-messages">
+            {% for msg in messages %}
+            {# Django uses "error" tag; Bootstrap uses "danger" #}
+            {% if msg.tags == 'error' %}
+                {% with alert_tag='danger' icon='x-octagon' %}
+                <div class="alert alert-{{ alert_tag }} alert-dismissible fade show" role="alert">
+                    <div class="msg-row">
+                        <span class="msg-ico"><i class="bi bi-{{ icon }}"></i></span>
+                        <div class="msg-txt">{{ msg }}</div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                </div>
+                {% endwith %}
+            {% elif msg.tags == 'success' %}
+                {% with alert_tag='success' icon='check-circle' %}
+                <div class="alert alert-{{ alert_tag }} alert-dismissible fade show" role="alert">
+                    <div class="msg-row">
+                        <span class="msg-ico"><i class="bi bi-{{ icon }}"></i></span>
+                        <div class="msg-txt">{{ msg }}</div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                </div>
+                {% endwith %}
+            {% elif msg.tags == 'warning' %}
+                {% with alert_tag='warning' icon='exclamation-triangle' %}
+                <div class="alert alert-{{ alert_tag }} alert-dismissible fade show" role="alert">
+                    <div class="msg-row">
+                        <span class="msg-ico"><i class="bi bi-{{ icon }}"></i></span>
+                        <div class="msg-txt">{{ msg }}</div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                </div>
+                {% endwith %}
+            {% else %}
+                {% with alert_tag='info' icon='info-circle' %}
+                <div class="alert alert-{{ alert_tag }} alert-dismissible fade show" role="alert">
+                    <div class="msg-row">
+                        <span class="msg-ico"><i class="bi bi-{{ icon }}"></i></span>
+                        <div class="msg-txt">{{ msg }}</div>
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                </div>
+                {% endwith %}
+            {% endif %}
+            {% endfor %}
         </div>
-        {% endfor %}
     </div>
 
     <!-- Page Content -->
