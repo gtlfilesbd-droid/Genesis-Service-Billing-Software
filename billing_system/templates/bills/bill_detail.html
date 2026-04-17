@@ -235,28 +235,6 @@
         <a href="{% url 'bill_edit' bill.pk %}" class="btn btn-outline-secondary">
             <i class="bi bi-pencil me-1"></i>Edit
         </a>
-        {% if bill.is_mature %}
-        <form method="post" action="{% url 'bill_set_invoice_today' bill.pk %}" class="d-inline" id="setInvoiceTodayForm">
-            {% csrf_token %}
-            <div class="form-check form-check-inline ms-1 align-middle">
-                <input class="form-check-input" type="checkbox" id="setInvoiceTodayChk">
-                <label class="form-check-label small text-muted" for="setInvoiceTodayChk">
-                    Set invoice date to today
-                </label>
-            </div>
-        </form>
-        <script>
-        (function () {
-            const chk = document.getElementById('setInvoiceTodayChk');
-            const form = document.getElementById('setInvoiceTodayForm');
-            if (!chk || !form) return;
-            chk.addEventListener('change', () => {
-                if (!chk.checked) return;
-                form.submit();
-            });
-        })();
-        </script>
-        {% endif %}
         {% endif %}
         {% endif %}
         {% if profile.can_submit_bill or request.user.is_superuser %}
@@ -481,6 +459,43 @@
 
 <!-- Sidebar -->
 <div class="col-lg-4">
+    {% if bill.status == 'pending' and bill.is_mature %}
+    {% if profile.can_edit_bill or request.user.is_superuser %}
+    <div class="card mb-3" style="border:none;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
+        <div class="card-body">
+            <div class="d-flex justify-content-between align-items-start gap-3">
+                <div>
+                    <div class="fw-bold text-dark" style="font-size:0.95rem;">
+                        <i class="bi bi-magic me-2 text-primary"></i>Quick update
+                    </div>
+                    <div class="text-muted small mt-1" style="line-height:1.35;">
+                        Turn this on to set <span class="fw-semibold">Invoice Date</span> to today and auto-sync the <span class="fw-semibold">Invoice Number</span>.
+                    </div>
+                </div>
+                <form method="post" action="{% url 'bill_set_invoice_today' bill.pk %}" id="setInvoiceTodayForm" class="m-0">
+                    {% csrf_token %}
+                    <div class="form-check form-switch m-0">
+                        <input class="form-check-input" type="checkbox" role="switch" id="setInvoiceTodayToggle">
+                        <label class="form-check-label visually-hidden" for="setInvoiceTodayToggle">Set invoice date to today</label>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    <script>
+    (function () {
+        const t = document.getElementById('setInvoiceTodayToggle');
+        const f = document.getElementById('setInvoiceTodayForm');
+        if (!t || !f) return;
+        t.addEventListener('change', () => {
+            if (!t.checked) return;
+            f.submit();
+        });
+    })();
+    </script>
+    {% endif %}
+    {% endif %}
+
     <!-- Payment Info -->
     <div class="card mb-3" style="border:none;border-radius:12px;box-shadow:0 2px 8px rgba(0,0,0,0.08);">
         <div class="card-header bg-white border-0 pt-3">
