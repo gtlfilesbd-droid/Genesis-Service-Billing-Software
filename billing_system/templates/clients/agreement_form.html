@@ -58,9 +58,25 @@
                     <input type="date" name="end_date" class="form-control" value="{% if agreement and agreement.end_date %}{{ agreement.end_date|date:'Y-m-d' }}{% endif %}" required>
                 </div>
                 <div class="col-md-6 d-flex align-items-end">
-                    <div class="form-text ms-md-2 mb-2" style="font-size:.92rem;">
-                        <span class="text-muted">Duration:</span>
-                        <span class="fw-semibold text-dark" id="agreementDurationText">—</span>
+                    <div class="d-flex flex-wrap gap-3 align-items-end ms-md-2 mb-2 w-100">
+                        <div class="d-flex align-items-center gap-2">
+                            <label for="agreementMonthsSelect" class="form-text text-muted mb-0" style="font-size:.92rem; white-space:nowrap;">Set by months</label>
+                            <select id="agreementMonthsSelect" class="form-select form-select-sm" style="width:170px;">
+                                <option value="">— Select —</option>
+                                <option value="1">1 month</option>
+                                <option value="3">3 months</option>
+                                <option value="6">6 months</option>
+                                <option value="9">9 months</option>
+                                <option value="12">12 months</option>
+                                <option value="18">18 months</option>
+                                <option value="24">24 months</option>
+                                <option value="36">36 months</option>
+                            </select>
+                        </div>
+                        <div class="form-text mb-0" style="font-size:.92rem;">
+                            <span class="text-muted">Duration:</span>
+                            <span class="fw-semibold text-dark" id="agreementDurationText">—</span>
+                        </div>
                     </div>
                 </div>
                 <div class="col-12">
@@ -385,6 +401,25 @@ function _normalizeDateOnly(d) {
     return x;
 }
 
+function _formatISODate(d) {
+    if (!d) return '';
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+}
+
+// Bill To for a term of N months = start + N months - 1 day
+function billToFromStart(start, months) {
+    const s = _normalizeDateOnly(start);
+    const mm = Number(months || 0);
+    if (!s || !mm || mm < 1) return null;
+    const x = _normalizeDateOnly(addMonthsJs(s, mm));
+    if (!x) return null;
+    x.setDate(x.getDate() - 1);
+    return x;
+}
+
 /**
  * Duration shown as "X months, Y days" based on anniversary month-add logic:
  * months = max m where addMonthsJs(start, m) <= end; days = remaining days.
@@ -393,14 +428,9 @@ function diffMonthsDays(start, end) {
     const s = _normalizeDateOnly(start);
     const e = _normalizeDateOnly(end);
     if (!s || !e || e < s) return null;
-    // Month counting matches billing maturity periods:
-    // Bill To for m months = addMonthsJs(start, m) - 1 day (except m=0 baseline at start)
     function billToForMonths(m) {
         if (!m) return _normalizeDateOnly(s); // 0 months baseline
-        const x = _normalizeDateOnly(addMonthsJs(s, m));
-        if (!x) return null;
-        x.setDate(x.getDate() - 1);
-        return x;
+        return billToFromStart(s, m);
     }
 
     let m = 0;
@@ -436,6 +466,40 @@ function updateAgreementDurationText() {
         return;
     }
     el.textContent = `${d.months} months, ${d.days} days`;
+}
+
+function syncMonthsSelectWithDates() {
+    const sel = document.getElementById('agreementMonthsSelect');
+    if (!sel) return;
+    const startEl = document.querySelector('input[name="start_date"]');
+    const endEl = document.querySelector('input[name="end_date"]');
+    const s = parseDate(startEl?.value);
+    const e = parseDate(endEl?.value);
+    if (!s || !e) {
+        sel.value = '';
+        return;
+    }
+    const options = Array.from(sel.options).map(o => o.value).filter(v => v);
+    const match = options.find(v => {
+        const bt = billToFromStart(s, Number(v));
+        return bt && _formatISODate(bt) === _formatISODate(_normalizeDateOnly(e));
+    });
+    sel.value = match || '';
+}
+
+function onMonthsSelectChange() {
+    const sel = document.getElementById('agreementMonthsSelect');
+    const startEl = document.querySelector('input[name="start_date"]');
+    const endEl = document.querySelector('input[name="end_date"]');
+    if (!sel || !startEl || !endEl) return;
+    const months = Number(sel.value || 0);
+    const s = parseDate(startEl.value);
+    if (!s || !months) return;
+    const bt = billToFromStart(s, months);
+    if (!bt) return;
+    endEl.value = _formatISODate(bt);
+    // Trigger recalcs + duration update
+    recalcAmcTotals();
 }
 
 function formatBDT(n) {
@@ -487,6 +551,7 @@ function recalcAmcTotals() {
     const years = yearsInPeriod(start, end);
 
     updateAgreementDurationText();
+    syncMonthsSelectWithDates();
 
     let grand = 0;
     let grandMonthly = 0;
@@ -545,5 +610,8 @@ document.addEventListener('change', (e) => {
 
 recalcAmcTotals();
 updateAgreementDurationText();
+syncMonthsSelectWithDates();
+
+document.getElementById('agreementMonthsSelect')?.addEventListener('change', onMonthsSelectChange);
 </script>
 {% endblock %}
