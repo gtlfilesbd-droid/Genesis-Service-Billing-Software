@@ -20,9 +20,9 @@
             <!-- Agreement Details -->
             <div class="row g-3 mb-4">
                 <div class="col-md-6">
-                    <label class="form-label" for="id_title_choice">Agreement Title <span class="text-danger">*</span></label>
+                    <label class="form-label" for="id_title_choice">Agreement On <span class="text-danger">*</span></label>
                     <select name="title_choice" id="id_title_choice" class="form-select" required>
-                        <option value="">— Select agreement title —</option>
+                        <option value="">— Select agreement on —</option>
                         {% for p in agreement_title_presets %}
                         <option value="{{ p.pk }}" {% if selected_title_choice == p.pk|stringformat:"d" %}selected{% endif %}>{{ p.title }}</option>
                         {% endfor %}
@@ -60,7 +60,7 @@
                 <div class="col-md-6 d-flex align-items-end">
                     <div class="row g-2 w-100 ms-md-1 mb-2 align-items-end">
                         <div class="col-sm-6 col-lg-5">
-                            <label class="form-label mb-1" for="agreementMonthsSelect">Set by months</label>
+                            <label class="form-label mb-1" for="agreementMonthsSelect">End Date Set by months</label>
                             <select id="agreementMonthsSelect" class="form-select">
                                 <option value="">— Select months —</option>
                             </select>
