@@ -113,7 +113,7 @@
         <div class="row g-3">
             <div class="col-md-7">
                 <label class="form-label">Select Client <span class="req">*</span></label>
-                <select name="client" id="clientSelect" class="form-select" required>
+                <select name="client" id="clientSelect" class="form-select" required {% if action == 'Edit' %}disabled{% endif %}>
                     <option value="">— Select Client —</option>
                     {% for c in clients %}
                     <option value="{{ c.pk }}"
@@ -126,7 +126,7 @@
             </div>
             <div class="col-md-5">
                 <label class="form-label">Select Agreement <span class="req">*</span></label>
-                <select name="agreement" id="agreementSelect" class="form-select" required data-current="{% if bill and bill.agreement_id %}{{ bill.agreement_id }}{% endif %}">
+                <select name="agreement" id="agreementSelect" class="form-select" required data-current="{% if bill and bill.agreement_id %}{{ bill.agreement_id }}{% endif %}" {% if action == 'Edit' %}disabled{% endif %}>
                     <option value="">— Select Agreement —</option>
                 </select>
             </div>
@@ -183,29 +183,19 @@
 <!-- Bill period (auto on create; editable on edit) -->
 <div class="section-card">
     <div class="section-header"><i class="bi bi-clock-history"></i>Bill Period
-        {% if action == 'Edit' %}<small class="opacity-75">(editable)</small>{% else %}<small class="opacity-75">(auto)</small>{% endif %}
+        {% if action == 'Edit' %}<small class="opacity-75">(locked)</small>{% else %}<small class="opacity-75">(auto)</small>{% endif %}
     </div>
     <div class="section-body">
         <div class="row g-3">
             <div class="col-md-6">
                 <label class="form-label">Bill From</label>
-                {% if action == 'Edit' %}
-                <input type="date" name="bill_period_from" id="billPeriodFromIn" class="form-control"
-                    value="{% if bill and bill.bill_period_from %}{{ bill.bill_period_from|date:'Y-m-d' }}{% endif %}">
-                {% else %}
                 <input type="date" id="billPeriodFromIn" class="form-control bg-light" readonly
                     value="{% if bill and bill.bill_period_from %}{{ bill.bill_period_from|date:'Y-m-d' }}{% endif %}">
-                {% endif %}
             </div>
             <div class="col-md-6">
                 <label class="form-label">Bill To</label>
-                {% if action == 'Edit' %}
-                <input type="date" name="bill_period_to" id="billPeriodToIn" class="form-control"
-                    value="{% if bill and bill.bill_period_to %}{{ bill.bill_period_to|date:'Y-m-d' }}{% endif %}">
-                {% else %}
                 <input type="date" id="billPeriodToIn" class="form-control bg-light" readonly
                     value="{% if bill and bill.bill_period_to %}{{ bill.bill_period_to|date:'Y-m-d' }}{% endif %}">
-                {% endif %}
             </div>
         </div>
     </div>

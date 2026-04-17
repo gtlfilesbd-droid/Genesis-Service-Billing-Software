@@ -205,15 +205,16 @@ def _save_bill_from_post(request, bill):
         bill.ait_rate_percent = _parse_rate_percent(
             request, 'ait_rate_percent', tax_defaults.ait_percent
         )
-        bill.client_id = request.POST.get('client')
-        bill.agreement_id = request.POST.get('agreement') or None
+        is_edit = request.POST.get('bill_form_is_edit') == '1'
+        if not is_edit:
+            bill.client_id = request.POST.get('client')
+            bill.agreement_id = request.POST.get('agreement') or None
         inv_raw = request.POST.get('invoice_date')
         if inv_raw:
             bill.invoice_date = parse_date(inv_raw) or date.today()
         else:
             bill.invoice_date = date.today()
         inv = bill.invoice_date
-        is_edit = request.POST.get('bill_form_is_edit') == '1'
 
         if is_edit:
             bill._skip_auto_invoice_number = True
@@ -222,10 +223,8 @@ def _save_bill_from_post(request, bill):
                 bill.invoice_number = inv_num
             po_raw = request.POST.get('po_date')
             bill.po_date = parse_date(po_raw) if po_raw else None
-            bf_raw = request.POST.get('bill_period_from')
-            bt_raw = request.POST.get('bill_period_to')
-            bill.bill_period_from = parse_date(bf_raw) if bf_raw else None
-            bill.bill_period_to = parse_date(bt_raw) if bt_raw else None
+            # Pending bill edits must not change client/agreement/bill-period to avoid duplicates.
+            # Keep existing bill_period_from/to as-is.
             bill.bill_period = format_bill_period_line(bill.bill_period_from, bill.bill_period_to)
         elif bill.agreement_id:
             try:
@@ -434,12 +433,14 @@ def bill_edit(request, pk):
         return redirect('bill_detail', pk=pk)
     clients = Client.objects.filter(is_active=True)
     if request.method == 'POST':
-        if not request.POST.get('agreement'):
+        is_edit = request.POST.get('bill_form_is_edit') == '1'
+        # In edit mode we lock client/agreement; validate against existing bill.
+        client_id = bill.client_id if is_edit else request.POST.get('client')
+        agreement_id = bill.agreement_id if is_edit else request.POST.get('agreement')
+        if not agreement_id:
             messages.error(request, 'Please select an agreement.')
             return redirect('bill_edit', pk=pk)
-        ok, err = _validate_bill_invoice_prerequisites(
-            request.POST.get('client'), request.POST.get('agreement')
-        )
+        ok, err = _validate_bill_invoice_prerequisites(client_id, agreement_id)
         if not ok:
             messages.error(request, err)
             ctx = {
