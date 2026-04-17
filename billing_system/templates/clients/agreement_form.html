@@ -58,24 +58,18 @@
                     <input type="date" name="end_date" class="form-control" value="{% if agreement and agreement.end_date %}{{ agreement.end_date|date:'Y-m-d' }}{% endif %}" required>
                 </div>
                 <div class="col-md-6 d-flex align-items-end">
-                    <div class="d-flex flex-wrap gap-3 align-items-end ms-md-2 mb-2 w-100">
-                        <div class="d-flex align-items-center gap-2">
-                            <label for="agreementMonthsSelect" class="form-text text-muted mb-0" style="font-size:.92rem; white-space:nowrap;">Set by months</label>
-                            <select id="agreementMonthsSelect" class="form-select form-select-sm" style="width:170px;">
-                                <option value="">— Select —</option>
-                                <option value="1">1 month</option>
-                                <option value="3">3 months</option>
-                                <option value="6">6 months</option>
-                                <option value="9">9 months</option>
-                                <option value="12">12 months</option>
-                                <option value="18">18 months</option>
-                                <option value="24">24 months</option>
-                                <option value="36">36 months</option>
+                    <div class="row g-2 w-100 ms-md-1 mb-2 align-items-end">
+                        <div class="col-sm-6 col-lg-5">
+                            <label class="form-label mb-1" for="agreementMonthsSelect">Set by months</label>
+                            <select id="agreementMonthsSelect" class="form-select">
+                                <option value="">— Select months —</option>
                             </select>
                         </div>
-                        <div class="form-text mb-0" style="font-size:.92rem;">
-                            <span class="text-muted">Duration:</span>
-                            <span class="fw-semibold text-dark" id="agreementDurationText">—</span>
+                        <div class="col-sm-6 col-lg-7 d-flex align-items-end">
+                            <div class="form-text mb-1" style="font-size:.95rem;">
+                                <span class="text-muted">Duration:</span>
+                                <span class="fw-semibold text-dark" id="agreementDurationText">—</span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -329,6 +323,21 @@ document.addEventListener('input', (e) => {
 document.querySelector('form')?.addEventListener('submit', () => {
     syncAllServiceNamesJson();
 });
+
+function populateMonthsSelect() {
+    const sel = document.getElementById('agreementMonthsSelect');
+    if (!sel) return;
+    // Keep the first placeholder option.
+    const placeholder = sel.options[0];
+    sel.innerHTML = '';
+    sel.appendChild(placeholder);
+    for (let i = 1; i <= 120; i++) {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = `${i} month${i === 1 ? '' : 's'}`;
+        sel.appendChild(opt);
+    }
+}
 
 function parseDate(val) {
     if (!val) return null;
@@ -610,6 +619,7 @@ document.addEventListener('change', (e) => {
 
 recalcAmcTotals();
 updateAgreementDurationText();
+populateMonthsSelect();
 syncMonthsSelectWithDates();
 
 document.getElementById('agreementMonthsSelect')?.addEventListener('change', onMonthsSelectChange);
