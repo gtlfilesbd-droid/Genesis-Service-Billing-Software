@@ -1,5 +1,9 @@
 from django.contrib import admin
 from django.urls import path, include
+
+admin.site.site_header = "Genesis BillSoft Administration"
+admin.site.site_title = "Genesis BillSoft Administration"
+admin.site.index_title = "Genesis BillSoft Administration"
 from django.conf import settings
 from django.conf.urls.static import static
 from django.views.generic import RedirectView
