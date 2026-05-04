@@ -38,7 +38,8 @@ def _create_auto_bill(ag: Agreement, period_from, period_to, invoice_date) -> Bi
         return None
 
     tax = BillingTaxSettings.get_solo()
-    bb = BillingBank.get_default()
+    co = ag.agreement_with if ag.agreement_with_id else None
+    bb = BillingBank.get_default_for_company(co) if co else None
 
     with transaction.atomic():
         bill = Bill(

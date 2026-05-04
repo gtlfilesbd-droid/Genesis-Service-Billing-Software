@@ -5,7 +5,7 @@ from django.contrib.auth.models import User
 from django.utils import timezone
 from django.utils.dateparse import parse_date
 
-from clients.models import Client, Agreement, Service
+from clients.models import Client, Agreement, Company, Service
 
 
 BILL_STATUS_CHOICES = [
@@ -57,18 +57,29 @@ class BillingTaxSettings(models.Model):
 
 
 class BillingBank(models.Model):
-    """Multiple bank profiles; one can be marked default for new bills. Managed in Admin."""
+    """Bank profiles per issuing company (Agreement With). One default per company for new bills."""
 
     class Meta:
-        ordering = ['-is_default', 'label']
+        ordering = ['company_id', '-is_default', 'label']
         verbose_name = 'Billing bank'
         verbose_name_plural = 'Billing banks'
 
+    company = models.ForeignKey(
+        Company,
+        on_delete=models.PROTECT,
+        related_name='billing_banks',
+        null=True,
+        blank=True,
+        help_text='Issuing company whose invoices use this profile. Default applies to bills for agreements with this company.',
+    )
     label = models.CharField(
         max_length=120,
         help_text='Short name shown in the bill form dropdown (e.g. DBBL Main).',
     )
-    is_default = models.BooleanField(default=False, verbose_name='Default for new bills')
+    is_default = models.BooleanField(
+        default=False,
+        verbose_name='Default for new bills (this company)',
+    )
     bank_name = models.CharField(max_length=255, blank=True, verbose_name='Bank Name')
     beneficiary = models.CharField(max_length=255, blank=True, verbose_name='Beneficiary')
     bank_branch = models.CharField(max_length=255, blank=True, verbose_name='Branch')
@@ -82,12 +93,17 @@ class BillingBank(models.Model):
 
     def __str__(self):
         d = ' (default)' if self.is_default else ''
-        return f'{self.label}{d}'
+        c = f' [{self.company}]' if self.company_id else ''
+        return f'{self.label}{c}{d}'
 
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         if self.is_default:
-            BillingBank.objects.exclude(pk=self.pk).update(is_default=False)
+            qs = BillingBank.objects.exclude(pk=self.pk)
+            if self.company_id:
+                qs.filter(company_id=self.company_id).update(is_default=False)
+            else:
+                qs.filter(company__isnull=True).update(is_default=False)
 
     def copy_to_bill(self, bill):
         bill.bank_name = self.bank_name or ''
@@ -102,9 +118,19 @@ class BillingBank(models.Model):
         bill.tin_number = self.tin_number or ''
 
     @classmethod
+    def get_default_for_company(cls, company):
+        """Bank profile marked default for this issuing company (Agreement With)."""
+        if not company:
+            return None
+        pk = company.pk if hasattr(company, 'pk') else company
+        if not pk:
+            return None
+        return cls.objects.filter(company_id=pk, is_default=True).first()
+
+    @classmethod
     def get_default(cls):
-        """Only a profile explicitly marked default; no fallback to the first row."""
-        return cls.objects.filter(is_default=True).first()
+        """Deprecated: use get_default_for_company. Kept for old callers without company context."""
+        return cls.objects.filter(is_default=True, company__isnull=True).first()
 
     @staticmethod
     def clear_bill_bank_fields(bill):

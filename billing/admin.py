@@ -1,4 +1,5 @@
 from django.contrib import admin
+from clients.models import Agreement
 from .models import Bill, BillItem, BillingBank, BillingTaxSettings
 
 
@@ -19,7 +20,13 @@ class BillAdmin(admin.ModelAdmin):
     inlines = [BillItemInline]
 
     def save_model(self, request, obj, form, change):
-        bb = obj.billing_bank or BillingBank.get_default()
+        bb = obj.billing_bank
+        if not bb:
+            ag = getattr(obj, 'agreement', None)
+            if ag is None and obj.agreement_id:
+                ag = Agreement.objects.select_related('agreement_with').filter(pk=obj.agreement_id).first()
+            co = ag.agreement_with if ag and ag.agreement_with_id else None
+            bb = BillingBank.get_default_for_company(co) if co else None
         if bb:
             obj.billing_bank = bb
             bb.copy_to_bill(obj)
@@ -40,11 +47,12 @@ class BillAdmin(admin.ModelAdmin):
 
 @admin.register(BillingBank)
 class BillingBankAdmin(admin.ModelAdmin):
-    list_display = ('label', 'is_default', 'bank_name', 'account_number')
-    list_filter = ('is_default',)
+    list_display = ('label', 'company', 'is_default', 'bank_name', 'account_number')
+    list_filter = ('company', 'is_default')
     search_fields = ('label', 'bank_name', 'beneficiary', 'account_number')
+    autocomplete_fields = ('company',)
     fieldsets = (
-        (None, {'fields': ('label', 'is_default', 'bank_name', 'beneficiary')}),
+        (None, {'fields': ('company', 'label', 'is_default', 'bank_name', 'beneficiary')}),
         ('Address', {'fields': ('bank_branch', 'bank_address_line1', 'bank_address_line2')}),
         ('Account', {'fields': ('account_number', 'swift_code', 'branch_routing_code')}),
         ('Tax IDs', {'fields': ('bin_number', 'tin_number')}),

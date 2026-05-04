@@ -53,13 +53,30 @@ def _parse_rate_percent(request, key, default):
         return default
 
 
+def _agreement_company_for_bill(bill):
+    """Issuing company (Agreement With) for bank defaults."""
+    if not bill or not getattr(bill, 'agreement_id', None):
+        return None
+    ag = getattr(bill, 'agreement', None)
+    if ag is not None and getattr(ag, 'agreement_with_id', None):
+        return ag.agreement_with
+    ag = Agreement.objects.select_related('agreement_with').filter(pk=bill.agreement_id).first()
+    if ag and ag.agreement_with_id:
+        return ag.agreement_with
+    return None
+
+
 def _bill_form_extra_context(bill=None):
     s = BillingTaxSettings.get_solo()
-    banks = list(BillingBank.objects.all().order_by('-is_default', 'label'))
+    banks = list(
+        BillingBank.objects.select_related('company').order_by('company_id', '-is_default', 'label')
+    )
     payload = [
         {
             'id': b.pk,
             'label': b.label,
+            'company_id': b.company_id,
+            'is_default': bool(b.is_default),
             'bank_name': b.bank_name or '',
             'beneficiary': b.beneficiary or '',
             'bank_branch': b.bank_branch or '',
@@ -77,16 +94,19 @@ def _bill_form_extra_context(bill=None):
     if bill and getattr(bill, 'billing_bank_id', None):
         initial = bill.billing_bank_id
     else:
-        for b in banks:
-            if b.is_default:
-                initial = b.pk
-                break
+        co = _agreement_company_for_bill(bill)
+        db = BillingBank.get_default_for_company(co) if co else None
+        initial = db.pk if db else None
+    bill_agreement_company_id = None
+    if bill and getattr(bill, 'agreement', None) and getattr(bill.agreement, 'agreement_with_id', None):
+        bill_agreement_company_id = bill.agreement.agreement_with_id
     return {
         'tax_vat_percent': float(s.vat_percent),
         'tax_ait_percent': float(s.ait_percent),
         'billing_banks': banks,
         'billing_banks_payload': payload,
         'initial_billing_bank_id': initial,
+        'bill_agreement_company_id': bill_agreement_company_id,
     }
 
 
@@ -98,7 +118,12 @@ def _set_billing_bank_fk_from_post(request, bill):
     elif raw is not None and str(raw).strip() == '':
         bb = None
     else:
-        bb = BillingBank.get_default()
+        co = None
+        if bill.agreement_id:
+            ag = Agreement.objects.select_related('agreement_with').filter(pk=bill.agreement_id).first()
+            if ag and ag.agreement_with_id:
+                co = ag.agreement_with
+        bb = BillingBank.get_default_for_company(co) if co else None
     bill.billing_bank = bb
 
 
@@ -422,7 +447,10 @@ def bill_detail(request, pk):
 @login_required
 def bill_edit(request, pk):
     profile = get_profile(request.user)
-    bill = get_object_or_404(Bill, pk=pk)
+    bill = get_object_or_404(
+        Bill.objects.select_related('agreement', 'agreement__agreement_with', 'billing_bank'),
+        pk=pk,
+    )
     if not profile.can_edit_bill and not request.user.is_superuser:
         messages.error(request, 'You do not have permission to edit bills.')
         return redirect('bill_detail', pk=pk)
@@ -495,15 +523,22 @@ def bill_edit(request, pk):
 @login_required
 def get_client_agreements(request, client_id):
     client = get_object_or_404(Client, pk=client_id)
-    agreements = client.agreements.filter(is_active=True).prefetch_related(
+    agreements = client.agreements.filter(is_active=True).select_related('agreement_with').prefetch_related(
         Prefetch('services', queryset=Service.objects.filter(is_active=True).order_by('id'))
     ).order_by('-start_date', '-id')
-    payload = [{
-        'id': a.id,
-        'title': a.title,
-        'start_date': a.start_date.isoformat() if a.start_date else '',
-        'end_date': a.end_date.isoformat() if a.end_date else '',
-    } for a in agreements]
+    payload = []
+    for a in agreements:
+        co = a.agreement_with
+        default_bb = BillingBank.get_default_for_company(co) if co else None
+        payload.append({
+            'id': a.id,
+            'title': a.title,
+            'start_date': a.start_date.isoformat() if a.start_date else '',
+            'end_date': a.end_date.isoformat() if a.end_date else '',
+            'company_id': co.pk if co else None,
+            'company_name': co.name if co else '',
+            'default_billing_bank_id': default_bb.pk if default_bb else None,
+        })
     return JsonResponse({'agreements': payload})
 
 

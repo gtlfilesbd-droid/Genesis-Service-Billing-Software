@@ -100,7 +100,9 @@
     </h4>
 </div>
 
-<form method="post" id="billForm">
+<form method="post" id="billForm"
+    data-agreement-company-id="{{ bill_agreement_company_id|default:'' }}"
+    data-initial-billing-bank="{{ initial_billing_bank_id|default:'' }}">
 {% csrf_token %}
 {% if action == 'Edit' %}<input type="hidden" name="bill_form_is_edit" value="1">{% endif %}
 <div class="row g-0">
@@ -350,7 +352,7 @@
                 <select name="billing_bank" id="billingBankSelect" class="form-select">
                     <option value="">— None — type below manually</option>
                     {% for b in billing_banks %}
-                    <option value="{{ b.pk }}" {% if initial_billing_bank_id == b.pk %}selected{% endif %}>{{ b.label }}{% if b.is_default %} (default){% endif %}</option>
+                    <option value="{{ b.pk }}" {% if initial_billing_bank_id == b.pk %}selected{% endif %}>{{ b.label }}{% if b.company %} — {{ b.company.name }}{% endif %}{% if b.is_default %} (default){% endif %}</option>
                     {% endfor %}
                 </select>
                 <p class="field-hint mt-2 mb-0">Choosing a profile copies its details into the fields; you can edit anything before saving. What you save is what appears on this invoice.</p>
@@ -492,11 +494,13 @@ const BILL_FORM_IS_EDIT = {% if action == 'Edit' %}true{% else %}false{% endif %
 (function initBillingBankProfileFill() {
     const el = document.getElementById('billing-banks-json');
     const sel = document.getElementById('billingBankSelect');
-    if (!el || !sel) return;
+    if (!el) return;
     let banks = [];
     try {
         banks = JSON.parse(el.textContent);
     } catch (e) { banks = []; }
+    window.__allBillingBanks = banks;
+    if (!sel) return;
     const byId = {};
     banks.forEach(b => { if (b && b.id != null) byId[String(b.id)] = b; });
     const fields = {
@@ -518,10 +522,57 @@ const BILL_FORM_IS_EDIT = {% if action == 'Edit' %}true{% else %}false{% endif %
             if (inp) inp.value = row && row[k] != null ? String(row[k]) : '';
         });
     }
+    window.applyBillingBankProfile = apply;
+
+    function companyIdForBankFilter() {
+        if (BILL_FORM_IS_EDIT) {
+            const raw = document.getElementById('billForm')?.dataset?.agreementCompanyId;
+            return raw ? parseInt(raw, 10) : null;
+        }
+        const agId = document.getElementById('agreementSelect')?.value;
+        const ag = window.__agreementsById?.[String(agId)];
+        if (ag && ag.company_id != null && ag.company_id !== '') return ag.company_id;
+        return null;
+    }
+
+    function rebuildBillingBankSelect() {
+        const cid = companyIdForBankFilter();
+        const pinned = document.getElementById('billForm')?.dataset?.initialBillingBank || '';
+        const filtered = banks.filter(b => {
+            if (pinned && String(b.id) === String(pinned)) return true;
+            if (cid == null || cid === '') return true;
+            return Number(b.company_id) === Number(cid) || b.company_id == null || b.company_id === '';
+        });
+        let html = '<option value="">— None — type below manually</option>';
+        filtered.forEach(b => {
+            let lab = b.label || '';
+            if (b.is_default) lab += ' (default)';
+            const safe = String(lab).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/"/g, '&quot;');
+            html += '<option value="' + String(b.id) + '">' + safe + '</option>';
+        });
+        const prev = sel.value;
+        sel.innerHTML = html;
+        let val = '';
+        if (BILL_FORM_IS_EDIT) {
+            val = pinned || '';
+        } else {
+            const ag = window.__agreementsById?.[String(document.getElementById('agreementSelect')?.value)];
+            const defId = ag && ag.default_billing_bank_id != null ? String(ag.default_billing_bank_id) : '';
+            if (defId && filtered.some(x => String(x.id) === defId)) val = defId;
+            else if (prev && filtered.some(x => String(x.id) === prev)) val = prev;
+        }
+        if (!val || !Array.from(sel.options).some(o => o.value === val)) val = '';
+        sel.value = val;
+        apply(sel.value || '');
+    }
+    window.rebuildBillingBankSelect = rebuildBillingBankSelect;
+
     sel.addEventListener('change', () => apply(sel.value));
-    {% if action == 'Create' %}
-    apply(sel.value || '');
-    {% endif %}
+    if (BILL_FORM_IS_EDIT) {
+        apply(sel.value || '');
+    } else {
+        rebuildBillingBankSelect();
+    }
 })();
 
 /** Create & Edit: invoice date = viewer's local "today" when the page opens (invoice # date segment follows). */
@@ -745,6 +796,7 @@ async function loadAgreementsForClient(clientId) {
     } finally {
         refreshInvoicePreview();
         await refreshBillPeriodPreview();
+        if (typeof window.rebuildBillingBankSelect === 'function') window.rebuildBillingBankSelect();
     }
 }
 
@@ -810,6 +862,7 @@ document.getElementById('agreementSelect')?.addEventListener('change', async () 
     await refreshBillPeriodPreview();
     refreshInvoicePreview();
     loadItemsFromAgreement(document.getElementById('agreementSelect')?.value);
+    if (typeof window.rebuildBillingBankSelect === 'function') window.rebuildBillingBankSelect();
 });
 
 const _invDateEl = document.getElementById('invoiceDateIn');
