@@ -465,6 +465,7 @@ def agreement_add(request, client_pk):
             end_date=request.POST.get('end_date') or None,
             notes=request.POST.get('notes'),
             attachment=request.FILES.get('attachment'),
+            vat_ait_excluded=request.POST.get('vat_ait_excluded') == 'on',
             created_by=request.user
         )
         agreement.save()
@@ -590,6 +591,7 @@ def agreement_edit(request, pk):
         agreement.end_date = request.POST.get('end_date') or None
         agreement.notes = request.POST.get('notes')
         agreement.is_active = request.POST.get('is_active') == 'on'
+        agreement.vat_ait_excluded = request.POST.get('vat_ait_excluded') == 'on'
         if request.FILES.get('attachment'):
             agreement.attachment = request.FILES.get('attachment')
         agreement.save()

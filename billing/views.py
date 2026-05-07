@@ -234,6 +234,11 @@ def _save_bill_from_post(request, bill):
         if not is_edit:
             bill.client_id = request.POST.get('client')
             bill.agreement_id = request.POST.get('agreement') or None
+        if bill.agreement_id:
+            ag_excl = Agreement.objects.filter(pk=bill.agreement_id).only('vat_ait_excluded').first()
+            if ag_excl and ag_excl.vat_ait_excluded:
+                bill.vat_rate_percent = Decimal('0')
+                bill.ait_rate_percent = Decimal('0')
         inv_raw = request.POST.get('invoice_date')
         if inv_raw:
             bill.invoice_date = parse_date(inv_raw) or date.today()
@@ -538,6 +543,7 @@ def get_client_agreements(request, client_id):
             'company_id': co.pk if co else None,
             'company_name': co.name if co else '',
             'default_billing_bank_id': default_bb.pk if default_bb else None,
+            'vat_ait_excluded': bool(a.vat_ait_excluded),
         })
     return JsonResponse({'agreements': payload})
 

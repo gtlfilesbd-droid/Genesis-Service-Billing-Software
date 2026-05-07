@@ -40,6 +40,7 @@ def _create_auto_bill(ag: Agreement, period_from, period_to, invoice_date) -> Bi
     tax = BillingTaxSettings.get_solo()
     co = ag.agreement_with if ag.agreement_with_id else None
     bb = BillingBank.get_default_for_company(co) if co else None
+    excluded = bool(getattr(ag, 'vat_ait_excluded', False))
 
     with transaction.atomic():
         bill = Bill(
@@ -52,8 +53,8 @@ def _create_auto_bill(ag: Agreement, period_from, period_to, invoice_date) -> Bi
             bill_period=format_bill_period_line(period_from, period_to),
             status='pending',
             auto_generated=True,
-            vat_rate_percent=tax.vat_percent,
-            ait_rate_percent=tax.ait_percent,
+            vat_rate_percent=Decimal('0') if excluded else tax.vat_percent,
+            ait_rate_percent=Decimal('0') if excluded else tax.ait_percent,
         )
         if bb:
             bill.billing_bank = bb

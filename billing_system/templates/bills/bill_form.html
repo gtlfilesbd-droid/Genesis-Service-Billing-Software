@@ -857,12 +857,43 @@ document.getElementById('clientSelect')?.addEventListener('change', async (e) =>
     refreshInvoicePreview();
 });
 
+function applyVatAitExclusionFromAgreement() {
+    const sel = document.getElementById('agreementSelect');
+    const ag = window.__agreementsById?.[String(sel?.value)];
+    const vatEl = document.getElementById('vatRateIn');
+    const aitEl = document.getElementById('aitRateIn');
+    if (!vatEl || !aitEl) return;
+    const excluded = !!(ag && ag.vat_ait_excluded);
+    if (excluded) {
+        vatEl.value = '0';
+        aitEl.value = '0';
+        vatEl.readOnly = true;
+        aitEl.readOnly = true;
+        vatEl.classList.add('bg-light');
+        aitEl.classList.add('bg-light');
+    } else {
+        vatEl.readOnly = false;
+        aitEl.readOnly = false;
+        vatEl.classList.remove('bg-light');
+        aitEl.classList.remove('bg-light');
+        if (!BILL_FORM_IS_EDIT) {
+            const dv = "{{ tax_vat_percent }}";
+            const da = "{{ tax_ait_percent }}";
+            if (dv !== '') vatEl.value = dv;
+            if (da !== '') aitEl.value = da;
+        }
+    }
+    recalc();
+}
+window.applyVatAitExclusionFromAgreement = applyVatAitExclusionFromAgreement;
+
 document.getElementById('agreementSelect')?.addEventListener('change', async () => {
     syncPoDateFromAgreement();
     await refreshBillPeriodPreview();
     refreshInvoicePreview();
     loadItemsFromAgreement(document.getElementById('agreementSelect')?.value);
     if (typeof window.rebuildBillingBankSelect === 'function') window.rebuildBillingBankSelect();
+    applyVatAitExclusionFromAgreement();
 });
 
 const _invDateEl = document.getElementById('invoiceDateIn');
@@ -878,6 +909,9 @@ _invDateEl?.addEventListener('input', () => {
 // Initial load (edit page or preselected client from URL)
 (async function initBillFormAgreements() {
     await loadAgreementsForClient(document.getElementById('clientSelect')?.value);
+    if (typeof window.applyVatAitExclusionFromAgreement === 'function') {
+        window.applyVatAitExclusionFromAgreement();
+    }
     recalc();
 })();
 </script>

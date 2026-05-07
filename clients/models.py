@@ -101,6 +101,11 @@ class Agreement(models.Model):
     start_date = models.DateField()
     end_date = models.DateField(blank=True, null=True)
     is_active = models.BooleanField(default=True)
+    vat_ait_excluded = models.BooleanField(
+        default=False,
+        verbose_name='VAT and AIT Exclude',
+        help_text='If on, all bills for this agreement use 0% VAT and 0% AIT.',
+    )
     notes = models.TextField(blank=True, null=True)
     attachment = models.FileField(upload_to='agreements/', blank=True, null=True)
 
