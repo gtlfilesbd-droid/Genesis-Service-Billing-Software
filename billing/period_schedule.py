@@ -8,8 +8,6 @@ from datetime import date, timedelta
 
 from .bill_period import (
     _clip_to_agreement,
-    _half_range,
-    _quarter_range,
     _one_time_range,
     add_months,
     primary_service_type,
@@ -20,19 +18,19 @@ def _invoice_date_after_period(period_to: date) -> date:
     return period_to + timedelta(days=1)
 
 
-def iter_monthly_periods(agreement, today: date):
+def iter_anniversary_periods(agreement, today: date, months_per_period: int):
     """
-    Anniversary months: period k = [add_months(start,k), add_months(start,k+1)-1].
-    Mature date (= invoice date) = add_months(start,k+1) = c_pt + 1 day.
-    Yield when c_pt + 1 <= today  i.e.  c_pt < today.
+    Fixed N-month blocks from agreement start_date (anniversary cadence).
+    Period k: [add_months(start, k*N), add_months(start, (k+1)*N) - 1 day].
+    Yield when bill_period_to < today.
     """
     start = agreement.start_date
-    if not start:
+    if not start or not months_per_period or months_per_period < 1:
         return
     k = 0
     while k < 5000:
-        pf = add_months(start, k)
-        pt = add_months(start, k + 1) - timedelta(days=1)
+        pf = add_months(start, k * months_per_period)
+        pt = add_months(start, (k + 1) * months_per_period) - timedelta(days=1)
         clipped = _clip_to_agreement(pf, pt, agreement)
         c_pf, c_pt = clipped
         if c_pf is None or c_pt is None:
@@ -44,48 +42,24 @@ def iter_monthly_periods(agreement, today: date):
         k += 1
 
 
+def iter_monthly_periods(agreement, today: date):
+    """Anniversary months (months_per_period=1)."""
+    yield from iter_anniversary_periods(agreement, today, 1)
+
+
 def iter_quarterly_periods(agreement, today: date):
-    y_end = today.year
-    if agreement.end_date:
-        y_end = max(y_end, agreement.end_date.year)
-    for y in range(agreement.start_date.year, y_end + 1):
-        for q in range(1, 5):
-            frm, to = _quarter_range(y, q)
-            clipped = _clip_to_agreement(frm, to, agreement)
-            pf, pt = clipped
-            if pf is None or pt is None:
-                continue
-            if pt < today:
-                yield (pf, pt, _invoice_date_after_period(pt))
+    """Anniversary 3-month blocks from start_date."""
+    yield from iter_anniversary_periods(agreement, today, 3)
 
 
 def iter_semi_annual_periods(agreement, today: date):
-    y_end = today.year
-    if agreement.end_date:
-        y_end = max(y_end, agreement.end_date.year)
-    for y in range(agreement.start_date.year, y_end + 1):
-        for h in (1, 2):
-            frm, to = _half_range(y, h)
-            clipped = _clip_to_agreement(frm, to, agreement)
-            pf, pt = clipped
-            if pf is None or pt is None:
-                continue
-            if pt < today:
-                yield (pf, pt, _invoice_date_after_period(pt))
+    """Anniversary 6-month blocks from start_date."""
+    yield from iter_anniversary_periods(agreement, today, 6)
 
 
 def iter_annual_periods(agreement, today: date):
-    y_end = today.year
-    if agreement.end_date:
-        y_end = max(y_end, agreement.end_date.year)
-    for y in range(agreement.start_date.year, y_end + 1):
-        frm, to = date(y, 1, 1), date(y, 12, 31)
-        clipped = _clip_to_agreement(frm, to, agreement)
-        pf, pt = clipped
-        if pf is None or pt is None:
-            continue
-        if pt < today:
-            yield (pf, pt, _invoice_date_after_period(pt))
+    """Anniversary 12-month blocks from start_date."""
+    yield from iter_anniversary_periods(agreement, today, 12)
 
 
 def iter_one_time_period(agreement, today: date):
