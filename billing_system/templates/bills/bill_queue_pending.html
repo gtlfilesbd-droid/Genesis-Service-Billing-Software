@@ -55,7 +55,7 @@
                         <th class="{% if not profile.can_submit_bill and not request.user.is_superuser %}ps-3{% endif %}">Invoice</th>
                         <th>Client</th>
                         <th>Invoice date</th>
-                        <th>Bill period</th>
+                        <th>Period</th>
                         <th>Amount</th>
                         <th>Actions</th>
                     </tr>
@@ -74,7 +74,7 @@
                     </td>
                     <td class="align-middle">{{ bill.client.name }}</td>
                     <td class="align-middle small">{{ bill.invoice_date }}</td>
-                    <td class="align-middle small text-muted">{{ bill.bill_period|default:"—" }}</td>
+                    <td class="align-middle small text-muted">{% include "bills/_bill_period_cell.html" %}</td>
                     <td class="align-middle fw-semibold">৳{{ bill.total_in_bdt|floatformat:0 }}</td>
                     <td class="align-middle">
                         <a href="{% url 'bill_detail' bill.pk %}" class="btn btn-sm btn-outline-primary">View</a>

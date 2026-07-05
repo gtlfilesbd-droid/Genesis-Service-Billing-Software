@@ -1,0 +1,5 @@
+{% if bill.bill_period_from and bill.bill_period_to %}
+<span class="text-nowrap">{{ bill.bill_period_from|date:"d M" }} – {{ bill.bill_period_to|date:"d M y" }}</span>
+{% else %}
+{{ bill.bill_period|default:"—"|truncatechars:28 }}
+{% endif %}

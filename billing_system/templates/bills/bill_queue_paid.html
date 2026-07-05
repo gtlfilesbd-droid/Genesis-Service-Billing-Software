@@ -37,6 +37,7 @@
                         <th class="ps-3">Invoice</th>
                         <th>Client</th>
                         <th>Invoice date</th>
+                        <th>Period</th>
                         <th>Paid on</th>
                         <th>Amount</th>
                         <th>Actions</th>
@@ -51,6 +52,7 @@
                     </td>
                     <td class="align-middle">{{ bill.client.name }}</td>
                     <td class="align-middle small">{{ bill.invoice_date }}</td>
+                    <td class="align-middle small text-muted">{% include "bills/_bill_period_cell.html" %}</td>
                     <td class="align-middle small">{{ bill.payment_date|default:"—" }}</td>
                     <td class="align-middle fw-semibold">৳{{ bill.total_in_bdt|floatformat:0 }}</td>
                     <td class="align-middle">
